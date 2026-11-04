@@ -274,3 +274,116 @@
 - **software-design-phase**：見 M-13（由設計 agent 修改並升版）。
 - **agent-dev-workflow（產品負責人維護）**：建議在 4.3「驗收測試骨架」加一句：「每個骨架轉為實際測試的變更，必須已包含該驗收 Given／When 所需的全部畫面與操作；同一編號涵蓋多個範圍時，各範圍分開命名，未完成的範圍保持略過。」理由：本次 B-1、M-9 屬跨專案通用問題。
 - **requirements-spec（產品負責人維護）**：同意 DQ-6，建議加上變更紀錄節。
+
+---
+
+## 回歸審查（第 2 輪）
+
+| 項目 | 內容 |
+|---|---|
+| 審查對象 | branch `design/initial` 的 commit `cadf291`：docs/design/ 全部檔案 v0.2（README.md、spec.md、module-test-standards.md、acceptance-test-plan.md、review-process.md、verification.md、cards.md、card-attributes.json、supplementary-acceptance.json、card-preview.html 與截圖），以及 .claude/skills/software-design-phase/SKILL.md 1.1 |
+| 審查者 | 審查 agent（與第 1 輪相同角色；只讀修訂後的文件與 `git diff 49aa1eb cadf291`，未讀設計者的推理過程） |
+| 作者 | 設計 agent（另一工作階段） |
+| 獨立性 | **審查者與作者為同一模型（Claude）的不同工作階段**（docs/workflow.md W-1） |
+| 審查日期 | 2026-11-04 |
+| 方法 | 依 agent-dev-workflow 原則 4 與 requirements-spec 6.2 回歸審查的精神：逐條讀實際修改的文字，不只看 README.md 第 4 節對照表的宣稱；重新檢查修訂引入的變更（PR 切分、固定 CSS 版面、DQ-7 標示、DQ-8～DQ-10）；以腳本重新核對編號、追溯與牌面屬性 |
+| 已載入 skill 版本 | agent-dev-workflow 1.0；requirements-spec 無版本號；software-design-phase 1.1（審查對象） |
+
+### 總評（第 2 輪）
+
+**可以交給產品負責人簽核。** 第 1 輪的 2 項阻擋型問題都已處理，沒有新的阻擋型問題。修訂引入 2 項修正型問題，都只要改一兩句文字（N-1、N-2）；建議簽核前順手修正，或在簽核紀錄中註明由 PR-1／PR-4 的審查把關。簽核時須一併決定 DQ-6～DQ-10（阻擋 PR-1）。
+
+結論統計：第 1 輪 27 項中，已解決 26 項，部分解決 1 項（B-2，殘留見 N-1），未解決 0 項。新發現：阻擋型 0、修正型 2、打磨型 8。
+
+### 腳本重新核對
+
+| 核對 | 結果 |
+|---|---|
+| 必要自動測試編號（需求 10.2 節驗證方式含「自動」的 51 個＋第 13 節 Must 自動 NFR 排除 NFR-1 的 4 個）對 acceptance-test-plan.md 第 2 節 | 55 對 55，缺 0、多 0 |
+| 各 PR 轉實測數量 | PR-1：2（另 NFR-7 首頁）；PR-2：AC-LV-5、AC-GP-2（U）；PR-3：3；PR-4：36（另 AC-GP-2 E 層、NFR-5／NFR-7 範圍）；PR-5：10。與 spec.md 第 14 節逐項一致 |
+| 需求矩陣 Must（功能 62、非功能 6）對 module-test-standards.md 第 3 節 | 68 對 68，缺 0、多 0 |
+| card-attributes.json：LV-2、LV-3、LV-4 | 三項皆成立；18 個 id 不重複；預覽頁各 SVG 的填色與屬性表一致 |
+| card-preview.html 外部資源與 id | 無 `<link>`、`<script>`、`@import`、`url(`、`href=`、`src=`、`@font-face`；唯一網址仍是 SVG 命名空間（轉換規則已規定移除）；20 個 `id` 全部唯一；`aria-label`、`role`、`data-face-id` 皆已移除 |
+
+### 第 1 輪各項的結論
+
+| 編號 | 結論 | 依據（實際文字） |
+|---|---|---|
+| B-1 | 已解決 | spec.md 第 14 節把選單進入關卡、結果畫面、遊戲中回選單移入 PR-4，新增「Given／When 所需畫面與操作」欄；acceptance-test-plan.md 第 1 節規定前提不成立時不得自行加入捷徑。逐列檢查 PR-4 的 37 個驗收：AC-GP-1（從選單進入）、AC-GP-8／AC-LV-6（結果畫面）、AC-GP-2 E 層（重玩本關）、AC-HT-1（回選單、重玩）、AC-LV-7、AC-LV-9（選單、勝利、失敗）、AC-RS-1～3 所需畫面都在 PR-4；需要紀錄顯示的 AC-TM-5、AC-PS-7、AC-RC-* 留在 PR-5。另見 N-2（版本號元素） |
+| B-2 | 部分解決 | DA-4 已移為 DQ-7（四個選項附影響與成本，阻擋 PR-1）；4.11、第 8 節、acceptance-test-plan.md #1、#2、#4 與第 4 節第 3 點標示「依 DQ-7」，且明寫決定前骨架不寫依賴任一選項的輔助程式；SVG 已移除 `aria-label`。殘留：spec.md 4.5 一句等於預先排除選項 (a)，見 N-1 |
+| M-1 | 已解決 | I-2 限定 `ready`／`playing`；I-5 加 `firstIndex=null`；T-11 一併清除 `firstIndex`；5.7 與 M5 邊界新增「翻錯鎖定中到達上限」 |
+| M-2 | 已解決 | 5.3 新增 `limitReached(t)`，T-11 守衛與 `advance` 使用之；5.7 與 M5 新增 `limitMs − 0.0004` 案例。6.3 一句舊措辭未同步，見 N-4 |
+| M-3 | 已解決 | 10.2 以表格固定狀態列 `height: 52px`、`line-height: 20px`、`nowrap`，按鈕 48、按鈕列 56，算式含 4 px 餘裕。本審查重算：360×640 s＝108（高 596／640、寬 356／360）；390×844 s＝118（636、386）；768×1024 s＝214（1020／1024）；1280×720 s＝186（714／720）；1920×1080 s＝240（876）；844×390 s＝118（386／390，側欄 352）。五種必要尺寸垂直與水平餘裕皆 ≥ 4 px，NFR-3 成立；360×640 牌 108×108、按鈕 80×48，NFR-5 成立。狀態列文字寬 240 px ≤ 328 px（扣內距）、選單 512 ≤ 636 的估算也正確 |
+| M-4 | 已解決 | 4.11 新增 `data-shown`（`face`／`back`）與 SVG `data-role`；10.3 遮蔽層寫明 12 張 `data-shown=back`；AC-PS-4 要點改用之 |
+| M-5 | 已解決 | 判定改為 `|d − lo| ≤ 0.2` 且 `|d − hi| ≤ 0.2`；`test.setTimeout(120_000)`；`*-realtime` project、單一 worker、在一般測試之後執行。附帶意見見 N-3 |
+| M-6 | 已解決 | 12.1 與 review-process.md 第 4 節：禁止在 `run:` 插值事件內容、PR 編號以 `env:` 傳入；review-gate 群組鍵 `review-gate-${{ github.event.pull_request.number \|\| github.event.issue.number }}`、`cancel-in-progress: false`；ci／pr-body 群組鍵對 `push` 用 `github.ref`；不 `npm install`、不用快取 |
+| M-7 | 已解決 | 12.6 新增步驟 0（已確認版本庫 `main` 只有 `f409a7a`）、6a／6b；兩個啟動例外與分段設定列為 DQ-8；verification.md 2.3、2.5 同步。附帶意見見 N-6、N-7 |
+| M-8 | 已解決 | review-process.md 新增 R-14，涵蓋工作流程、三支檢查腳本、playwright.config、package.json 測試指令、supplementary-acceptance.json、requirements.md；判定清單改為 R-1～R-14，M12 邊界同步 |
+| M-9 | 已解決 | NFR-5、NFR-7 各拆為 4 個命名範圍；PR-1 改為「NFR-7 首頁」；12.2 第 7 點說明 `--no-skip` 因此能發現遺漏範圍 |
+| M-10 | 已解決 | `unit` job 改用加引號的 glob，並記載 Node.js 22 傳目錄失敗的實測；刪除實作 agent 的端對端 smoke 選項（12.3、M10） |
+| M-11 | 已解決 | cards.md 第 2 節新增四步轉換規則（移除 `id`、`xmlns`，加 `aria-hidden`、`data-role`，SVG 不帶牌面識別碼，圖形原樣保留）；M9 禁止清單改為正規表示式並與轉換規則一致；R-9 改用 `https?://` 並檢查 `aria-label` |
+| M-12 | 已解決 | Should 範圍列為 DQ-10；第 15 節、acceptance-test-plan.md 第 3 節、supplementary-acceptance.json 的說明都寫明 `enforced` 與骨架同一 PR，簽核時已決定者為 PR-1 |
+| M-13 | 已解決 | skill 升為 1.1，變更紀錄完整；3.3、3.4、3.5、第 4、5.2、6、8、9 節都加入對應規則與檢查項。與專案無關的程度見 N-8 |
+| P-1 | 已解決 | 模擬區 svg 不帶 `id`，全頁 20 個 id 唯一 |
+| P-2 | 已解決 | 細節鍵名改為 `lines-horizontal` 等方向文字，cards.md 說明理由 |
+| P-3 | 已解決 | 按鈕高 48 |
+| P-4 | 已解決 | 移除 `viewport-fit=cover` 並說明理由 |
+| P-5 | 已解決 | 12.4 第 4 點與 review-process.md 第 4 節第 2 步寫明多位作者的解析；PR 範本由 PR-1 更新（範本檔目前未改，屬 PR-1 工作，合理） |
+| P-6 | 已解決 | `smoke` 步驟命名為「AC-EQ-9（部署）與 EQ-12 證據」，#51 註明兩者合起來滿足 |
+| P-7 | 已解決 | 12.6 步驟 9：UAT 期間勾選 Lock branch |
+| P-8 | 已解決 | 12.2 第 3、5 點涵蓋 `.skip`／`.fixme`／`.todo`／`describe.skip`／`it.skip`／`{ skip }`／`{ todo }` 與略過區塊內的測試 |
+| P-9 | 已解決 | 併入 M-6 |
+| P-10 | 已解決 | README.md 第 0 節附上工檢查與 skill 版本號 |
+| P-11 | 已解決 | module-test-standards.md 3.3 寫明正規表示式與結果；與本審查腳本結果相同 |
+| P-12 | 已解決 | skill 第 8 節改寫為通用情境並標示範例 |
+| 未列為待決的事項 1～5 | 已解決 | DQ-7、DQ-8、DQ-9、DQ-4（補連帶影響與 (a)～(c) 選項）、DQ-10 |
+
+### DQ-7～DQ-10 的檢查
+
+- **DQ-7 標示完整性：** 受影響處（4.5、4.10、4.11 牌列與其後說明、第 7 節最後一句、第 8 節、acceptance-test-plan.md #1、#2、#4、第 2 節說明、第 4 節第 3 點、M3 的呼叫次數契約）都已標示或不依賴選項。M3 固定 `deal` 的呼叫順序對任何選項都無害，不算預先採用。唯一例外是 N-1。
+- **DQ-8 描述正確：** 已以 `git` 確認 `main` 只有初始 commit `f409a7a`；兩個例外與 6a／6b 的理由（`issue_comment`／`pull_request_target` 只在預設分支生效；必要檢查名稱須執行過才選得到，後者仍標為推定）與 verification.md 一致。
+- **DQ-9 描述正確：** 與 verification.md 2.4 引用的官方原文「最多可能需要 10 分鐘」一致；建議的處理不修改程式、由產品負責人判定，未放寬 EQ-12。
+- **DQ-10 描述大致正確：** 小瑕疵見 N-10。
+
+### 新發現的問題
+
+#### 阻擋型
+
+無。
+
+#### 修正型
+
+**N-1 spec.md 4.5 預先排除 DQ-7 的選項 (a)**
+
+- **位置：** spec.md 4.5 GameView 定義後一段：「背面朝上時畫面層不得把它輸出到 DOM（`data-face` 的處理依 DQ-7 決定）」。
+- **問題：** DQ-7 選項 (a) 正是「所有牌皆帶 `data-face`」，這句話等於在決定前排除 (a)，與同一文件第 16 行「決定前不得實作任何一個選項」、4.11「`data-face` 依 DQ-7 決定是否輸出及何時輸出」矛盾。4.11 後段「背面朝上的牌不得以任何**可見或可朗讀**的方式透露牌面」則與 (a) 相容（`data-face` 既不可見也不朗讀），沒有問題。
+- **依據：** software-design-phase 1.1 第 3.4 節；spec.md 開頭的「依 DQ-n 決定」規則。
+- **建議：** 改為「背面朝上時，畫面層不得把牌面輸出為可見的圖像或可朗讀的名稱；是否以 `data-face` 輸出依 DQ-7 決定」。
+
+**N-2 PR-4 沒有寫明保留版本號元素，PR-1 起已轉實測的 AC-EQ-9 與「NFR-7 首頁」可能在 PR-4 失敗**
+
+- **位置：** spec.md 第 14 節 PR-1、PR-4、PR-5 列；4.10 `menu-view.js` 的職責含「版本號（EQ-9）」。
+- **問題：** PR-1 的最小 `index.html` 提供 `[data-testid="version"]`，AC-EQ-9 在 PR-1 即為實測。PR-4 以 app 路由與選單取代首頁，但 PR-4 的內容只寫「menu-view 的難度按鈕與進入關卡（不含紀錄、清除）」，需求編號欄也沒有 EQ-9（v0.1 的 EQ-9 原在 PR-5，v0.2 自 PR-5 移除後沒有歸屬）。實作 agent 依字面可能漏掉版本號，AC-EQ-9 在 PR-4 失敗，違反「不讓主分支壞掉」。
+- **依據：** agent-dev-workflow 4.3；EQ-9；spec.md 第 14 節自己的切分規則（已轉實測的驗收在後續 PR 仍須成立）。
+- **建議：** PR-4 內容加上「選單頁尾的版本號（`version` 元素，維持 PR-1 的 AC-EQ-9）」，需求編號欄加 EQ-9。skill 第 6 節的 Given／When 檢查可補一句：「早期 PR 已轉實測的驗收，在後續改寫同一畫面的 PR 中仍要成立」。
+
+#### 打磨型
+
+| 編號 | 位置 | 問題 | 建議 |
+|---|---|---|---|
+| N-3 | acceptance-test-plan.md 第 4 節第 5 點；skill 第 4 節「真實時間量測」與第 8 節對應列 | 已改為「兩端都在容差內」後，判定本身已不比需求寬鬆；另設「區間寬度 ≤ 0.05 秒」是多餘條件。Firefox／WebKit 的 `locator.click()` 含可操作性等待，點擊與讀值兩段往返合計可能超過 50 ms，會造成量測無效的誤判（重量後仍可能失敗），且失敗原因不是計時錯誤 | 刪除寬度上限，保留兩端判定；或把上限改為「選用、用於診斷」，並建議以 `page.mouse.click` 縮短點擊往返。skill 同步改為範例而非規則 |
+| N-4 | spec.md 6.3 | 仍寫「最後一對在 `limitMs` 之前任一時刻配對即為勝利」，與 5.3 的 `limitReached`（`limitMs − 0.0005` 起即失敗）不一致 | 改為「最後一對在顯示值達到上限之前配對即為勝利」 |
+| N-5 | spec.md DQ-7 選項 (b) | 「拒絕取樣不觸發時每次呼叫一次 `getRandomValues`」只描述常見情況；若測試輔助以「每局取 11 個值」重算，極少數觸發拒絕取樣時會算錯（機率約 n／2³²，可忽略但非零），且提示選牌也會消耗亂數 | 在選項 (b) 註明：測試記錄 `getRandomValues` 的全部輸出，並以 `src/js/core/random.js` 與 `deal.js` 本身重放，而不是假設固定個數 |
+| N-6 | spec.md 12.6 步驟 6b、8 | AC-EQ-11 第一步「沒有審查紀錄 → 無法合併」要在 `review-record` 已列為必要檢查後才看得到；若審查 agent 在 6b 前就留了紀錄，PR-2 上無法再驗證第一步 | 步驟 6b 註明「完成前審查 agent 不留 PR-2 的審查紀錄」 |
+| N-7 | spec.md 第 14 節 PR-1、DQ-8 | 設計文件目前在 branch `design/initial`（`c41913a`、`49aa1eb`、`cadf291`）。若此 branch 先以獨立 PR 合併，會多一個不受審查檢查與分支保護約束的合併，DQ-8 沒有涵蓋 | 寫明 PR-1 以 `design/initial` 為基礎（或包含其 commit），設計文件不另外單獨合併；或把它列入 DQ-8 的例外 |
+| N-8 | software-design-phase 1.1 第 4 節 | 新增段落有幾處未標為範例的專案情境或數值：「例如牌的邏輯狀態是『正面』」、「不讓測試介面洩漏**答案**」、「餘裕小於 **4 px** 視為不成立」。7.2 要求專案特定數值寫成範例 | 改為通用說法（「元素的邏輯狀態與實際渲染」「玩家不該取得的資訊」），4 px 標為「範例；依專案的取整與瀏覽器差異訂定」 |
+| N-9 | spec.md 第 14 節 PR-2、PR-5；DQ-4 | PR-2 寫「core 全部模組」（含 `records.js`），PR-5 又列 `records`；DQ-4 標為阻擋 PR-5，但 `parseRecords` 的整份／逐項邏輯若在 PR-2 實作，等於在決定前先實作選項 (a) | `records.js` 明確歸 PR-5，或把 DQ-4 的期限提前到 PR-2 |
+| N-10 | spec.md DQ-10「發現情境」 | 寫「追溯矩陣標為『設計階段補』」，但 NFR-4 在矩陣中的驗收是「量測方法」，不是「設計階段補」 | 改為「PS-5、PS-8、RS-4、RS-5、RC-9、EQ-10 標為設計階段補；NFR-4 為 Should 的非功能需求」 |
+
+### 修訂中值得保留的做法
+
+1. PR 切分表新增「Given／When 所需畫面與操作」欄，並禁止測試 agent 自行加入捷徑；能在設計階段就攔下 B-1 這類問題。
+2. DQ-7 列出四個選項各自的影響與成本，並明確拒絕「測試專用建置」（違反受測即發布的版本）；建議的 (b)＋(c) 不洩漏答案、正式程式不需測試入口。
+3. 版面規格改為「實作必須照寫的 CSS 表＋每個尺寸的餘裕欄」，可直接被審查與測試核對。
+4. 啟動程序（步驟 0、6a、6b）與 DQ-8 的理由說明清楚，且以實際版本庫狀態為準。
+5. 回歸檢查在 README.md 第 4 節逐項對照並附腳本結果；本輪抽查與宣稱一致（除 N-1、N-2 兩處遺漏外）。
