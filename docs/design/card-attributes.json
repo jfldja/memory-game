@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "牌面屬性表（需求 LV-2～LV-4、AC-LV-2～AC-LV-4、U-3）。id 為牌面識別碼，程式與測試共用。",
+  "description": "牌面屬性表（v0.2）（需求 LV-2～LV-4、AC-LV-2～AC-LV-4、U-3）。id 為牌面識別碼，程式與測試共用。",
   "attributes": {
     "shape": {
       "circle": "圓形",
@@ -39,12 +39,12 @@
     },
     "detail": {
       "none": "無",
-      "lines-0": "三條水平線",
-      "lines-90": "三條垂直線",
-      "lines-45": "三條斜線（＼，左上到右下）",
-      "lines-135": "三條斜線（／，左下到右上）",
-      "grid-0-90": "方格（水平＋垂直）",
-      "grid-45-135": "斜方格（＼＋／）"
+      "lines-horizontal": "三條水平線",
+      "lines-vertical": "三條垂直線",
+      "lines-diag-down": "三條斜線（＼，左上到右下）",
+      "lines-diag-up": "三條斜線（／，左下到右上）",
+      "grid-straight": "方格（水平＋垂直）",
+      "grid-diagonal": "斜方格（＼＋／）"
     }
   },
   "levels": [
@@ -140,37 +140,37 @@
           "id": "L3-1",
           "shape": "circle",
           "color": "vermillion",
-          "detail": "lines-0"
+          "detail": "lines-horizontal"
         },
         {
           "id": "L3-2",
           "shape": "circle",
           "color": "vermillion",
-          "detail": "lines-90"
+          "detail": "lines-vertical"
         },
         {
           "id": "L3-3",
           "shape": "circle",
           "color": "vermillion",
-          "detail": "lines-45"
+          "detail": "lines-diag-down"
         },
         {
           "id": "L3-4",
           "shape": "circle",
           "color": "vermillion",
-          "detail": "lines-135"
+          "detail": "lines-diag-up"
         },
         {
           "id": "L3-5",
           "shape": "circle",
           "color": "vermillion",
-          "detail": "grid-0-90"
+          "detail": "grid-straight"
         },
         {
           "id": "L3-6",
           "shape": "circle",
           "color": "vermillion",
-          "detail": "grid-45-135"
+          "detail": "grid-diagonal"
         }
       ]
     }

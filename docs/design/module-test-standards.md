@@ -2,10 +2,10 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.1（設計草稿） |
+| 版本 | 0.2（依設計審查 design-review.md 修訂） |
 | 日期 | 2026-11-04 |
 | 狀態 | 待產品負責人簽核（EQ-6） |
-| 依據 | docs/requirements.md v1.0；spec.md v0.1；agent-dev-workflow 第 3.1 節（測試分工） |
+| 依據 | docs/requirements.md v1.0；spec.md v0.2；agent-dev-workflow 第 3.1 節（測試分工） |
 
 ---
 
@@ -13,8 +13,8 @@
 
 | 層 | 位置 | 撰寫者 | 執行 | 內容 |
 |---|---|---|---|---|
-| 模組單元測試 | `tests/unit/` | 實作 agent | `node --test`，CI `unit` | 驗收標準以外、模組內部行為與邊界（本文件第 2 節「單元測試」欄） |
-| 驗收測試：無瀏覽器層 | `tests/acceptance/unit/` | 測試 agent | `node --test`，CI `unit` | 直接對應驗收編號、可不經畫面驗證者（acceptance-test-plan.md 的 U 層） |
+| 模組單元測試 | `tests/unit/**/*.test.mjs` | 實作 agent | `node --test`（glob），CI `unit` | 驗收標準以外、模組內部行為與邊界（本文件第 2 節「單元測試」欄） |
+| 驗收測試：無瀏覽器層 | `tests/acceptance/unit/**/*.test.mjs` | 測試 agent | `node --test`（glob），CI `unit` | 直接對應驗收編號、可不經畫面驗證者（acceptance-test-plan.md 的 U 層） |
 | 驗收測試：端對端層 | `tests/acceptance/e2e/` | 測試 agent | Playwright 三引擎，CI `e2e (*)` | 其餘驗收編號與 NFR |
 | 編號覆蓋檢查 | `scripts/check-acceptance-ids.mjs` | 實作 agent（腳本）；測試 agent（AC-EQ-4 測試） | CI `acceptance-ids` | EQ-4 |
 
@@ -50,7 +50,7 @@
 
 | 項目 | 內容 |
 |---|---|
-| 要測的行為 | 回傳 12 個元素、每個牌面恰 2 次；以固定序列的 `randomInt` 產生預期的 Fisher–Yates 結果；不修改輸入陣列 |
+| 要測的行為 | 回傳 12 個元素、每個牌面恰 2 次；以固定序列的 `randomInt` 產生預期的 Fisher–Yates 結果；不修改輸入陣列；每次 `deal` 恰依序呼叫 `randomInt(12)`…`randomInt(2)` 共 11 次（spec.md 4.3，DQ-7 選項 (b) 的契約） |
 | 邊界 | `randomInt` 永遠回傳 0；永遠回傳最大值 |
 | 對應 | GP-1、GP-2；AC-GP-1、AC-GP-2 |
 | 單元測試 | 確定性序列下的排列；輸入不被修改 |
@@ -70,10 +70,10 @@
 
 | 項目 | 內容 |
 |---|---|
-| 要測的行為 | spec.md 5.4 的 T-1～T-13 每一條：守衛成立時的效果、每個守衛不成立時無效果；不變式 I-1～I-5 在每次操作後成立；`getView` 的 `canUseHint`、`canPause`、`canResume`；`nextWakeup` 的值 |
+| 要測的行為 | spec.md 5.4 的 T-1～T-13 每一條：守衛成立時的效果、每個守衛不成立時無效果；不變式 I-1～I-5 在每次操作後成立（I-2 只在 `ready`／`playing` 檢查；終止狀態檢查 I-5）；`getView` 的 `canUseHint`、`canPause`、`canResume`；`nextWakeup` 的值 |
 | 狀態 × 操作 | spec.md 5.5 每一格至少一個測試（S0、S1、S2、S3、H、P、W／L × 點背面、點正面／已配對、提示、暫停／繼續） |
 | 狀態 × 計時器 | spec.md 5.6 每一列：暫停時三個計時一併停止並接續；上限在 S3、H 中到達；勝利時標示取消 |
-| 邊界 | 時間上限前 1 ms 配對最後一對（勝利）；恰好在上限點擊（失敗）；鎖定結束同一時刻點擊（有效）；`elapsedTenths` 在 89960／90000；只剩最後一對時提示；剩餘 1 次提示用完後；連續點同一張；提示標示中配對被標示的牌、標示仍持續到 2000 ms；暫停 0 ms 後繼續；`ready` 中暫停再繼續 |
+| 邊界 | 時間上限前 1 ms 配對最後一對（勝利）；原始值 `limitMs − 0.0004`（顯示值已達上限）配對最後一對（失敗，T-11 以 `limitReached` 判定）；恰好在上限點擊（失敗）；翻錯鎖定中到達上限（失敗，兩張牌維持 `up`、`lock` 與 `firstIndex` 皆為 null）；鎖定結束同一時刻點擊（有效）；`elapsedTenths` 在 89960／90000；只剩最後一對時提示；剩餘 1 次提示用完後；連續點同一張；提示標示中配對被標示的牌、標示仍持續到 2000 ms；暫停 0 ms 後繼續；`ready` 中暫停再繼續 |
 | 對應 | GP-1～8、TM-1、TM-3、TM-5、LV-6、HT-1～4、HT-7～10、PS-1～3、PS-9、PS-10（邏輯）、A-4、A-5 |
 | 單元測試 | 以上全部，時間以數字傳入、亂數以固定序列注入 |
 | 驗收測試 | 對應 AC 編號在 E 層驗證畫面觀察點（acceptance-test-plan.md） |
@@ -111,8 +111,8 @@
 
 | 項目 | 內容 |
 |---|---|
-| 要測的行為 | 18 個牌面 id 與屬性表一致；每個 SVG 字串不含 `http`、`<use`、`clipPath`、`id=`、`<text` |
-| 對應 | C-4、C-5、LV-2～4、NFR-7 |
+| 要測的行為 | 18 個牌面 id 與屬性表一致；每個 SVG 字串符合 cards.md 第 2 節轉換規則：不符合正規表示式 `https?://`、`<use`、`clipPath`、`\bid=`、`aria-label`、`<text`；帶 `aria-hidden="true"` 與 `data-role="face"`（牌背為 `data-role="back"`）；字串中不出現任何牌面識別碼（例如 `L3-1`） |
+| 對應 | C-4、C-5、LV-2～4、NFR-7、DQ-7（不論決定為何，SVG 都不帶牌面識別碼） |
 | 單元測試 | 字串檢查 |
 | 驗收測試 | AC-LV-2～4（比對 id 集合與關卡歸屬）；U-3、U-4 人工 |
 
@@ -120,9 +120,9 @@
 
 | 項目 | 內容 |
 |---|---|
-| 要測的行為 | 畫面路由；DOM 測試介面（spec.md 4.11）的屬性與 GameView 一致；停用按鈕使用 `aria-disabled`；離開遊戲時取消計時器；勝利時保存紀錄一次 |
+| 要測的行為 | 畫面路由；DOM 測試介面（spec.md 4.11）的屬性與 GameView 一致（含 `data-shown`）；停用按鈕使用 `aria-disabled`；離開遊戲時取消計時器；勝利時保存紀錄一次 |
 | 對應 | 全部畫面相關需求 |
-| 單元測試 | 不要求（需要 DOM）。實作 agent 可選擇以端對端形式寫非驗收的 smoke 測試，放 `tests/unit/e2e/`，不得以驗收編號命名 |
+| 單元測試 | 不要求（需要 DOM）。實作 agent 不撰寫端對端測試；畫面行為由測試 agent 的 E 層驗收涵蓋（spec.md 12.3）。可測的純函式（例如由 GameView 計算屬性值）放在 ui 層的獨立模組，以 `node --test` 測試 |
 | 驗收測試 | E 層全部 |
 
 ### M11 建置與版本（scripts/build.mjs、version.js）
@@ -139,7 +139,7 @@
 | 項目 | 內容 |
 |---|---|
 | 要測的行為 | 見 spec.md 12.2、12.4、review-process.md 第 4 節。每支腳本的判定邏輯為純函式 |
-| 邊界 | check-acceptance-ids：`AC-GP-1` 與 `AC-GP-10` 不互相誤判；編號只在註解中出現不算；一個標題含多個編號；`test.skip` 計入但另列。check-pr-body：未勾選、版本號不符、缺段落、skill 不存在。review-gate：無紀錄、SHA 為舊 commit、SHA 為短碼、非協作者評論、審查者工作階段等於作者、缺 W-1 註明、清單缺項、含「不通過」卻寫 APPROVED、多則紀錄以最後一則為準 |
+| 邊界 | check-acceptance-ids：`AC-GP-1` 與 `AC-GP-10` 不互相誤判；編號只在註解中出現不算；一個標題含多個編號；spec.md 12.2 第 5 點全部略過寫法（含略過的 `describe` 內的測試）都計入略過。check-pr-body：未勾選、版本號不符、缺段落、skill 不存在、「無版本號」的過渡規則、多位作者。review-gate：無紀錄、SHA 為舊 commit、SHA 為短碼、非協作者評論、審查者工作階段等於任一位作者、缺 W-1 註明、清單缺 R-1～R-14 任一項、含「不通過」卻寫 APPROVED、多則紀錄以最後一則為準 |
 | 對應 | EQ-4、EQ-5、EQ-11、workflow.md 4.4；AC-EQ-4 |
 | 單元測試 | check-pr-body、review-gate、check-acceptance-ids 的內部函式（實作 agent） |
 | 驗收測試 | AC-EQ-4（U 層，測試 agent）；AC-EQ-11、AC-EQ-2 由產品負責人人工驗收 |
@@ -239,7 +239,8 @@
 ### 3.3 覆蓋檢查結果
 
 - 需求第 13 節追溯矩陣中優先為 M 的功能需求 62 條、非功能需求 6 條，上表全部列出，每條都有設計章節與驗收方式。
-- 51 個含「自動」的驗收編號與 4 個 NFR 編號，每個都在 acceptance-test-plan.md 有骨架檔案與轉實測的 PR。
+- 核對方式（以腳本，不靠目測）：以正規表示式 `^\| ((?:GP|TM|LV|HT|PS|RS|RC|EQ|NFR)-\d+) \| M \|` 擷取需求文件第 13 節的 Must 編號，與本文件第 3 節表格第一欄的編號集合比較。2026-11-04 結果：需求 68、本表 68，缺 0、多 0。設計審查以獨立腳本得到相同結果。
+- 51 個含「自動」的驗收編號與 4 個 NFR 編號，每個都在 acceptance-test-plan.md 有骨架檔案與轉實測的 PR。核對方式：擷取需求第 10.2 節 `^\*\*(AC-…(、AC-…)*)\*\*（含「自動」）` 的標題與第 13 節 Must、自動的 NFR（排除 NFR-1），與 acceptance-test-plan.md 第 2 節編號欄比較。2026-11-04 結果：55 對 55，缺 0、多 0。
 - EQ-6、EQ-7、EQ-8、EQ-13、EQ-14 屬流程，由產品負責人執行；設計只提供支援（簽核欄、版本號格式）。
 
 ## 4. 變更紀錄
@@ -247,3 +248,4 @@
 | 版本 | 日期 | 變更 | 理由 |
 |---|---|---|---|
 | 0.1 | 2026-11-04 | 初稿 | 設計階段產出 |
+| 0.2 | 2026-11-04 | 單元測試以 glob 執行；M3 加入亂數呼叫次數契約；M5 加入顯示值上限與鎖定中失敗的邊界、I-2 適用範圍；M9 依 cards.md 轉換規則改寫禁止清單；M10 移除實作 agent 的端對端 smoke 選項；M12 邊界補略過寫法、多位作者、R-14；3.3 寫明腳本核對方式與結果 | design-review.md M-1、M-2、M-10、M-11、P-11 |

@@ -1,12 +1,37 @@
 {
   "schemaVersion": 1,
-  "description": "設計補充驗收（需求追溯矩陣標為「設計階段補」的 Should 需求）。內容見 spec.md 第 15 節。產品負責人簽核為本輪實作的項目，將 enforced 改為 true 後，check-acceptance-ids.mjs 一併檢查。",
+  "description": "設計補充驗收（需求追溯矩陣標為「設計階段補」的 Should 需求）。內容見 spec.md 第 15 節。本輪範圍依 spec.md DQ-10 決定；決定為本輪實作的項目，enforced 改為 true 與對應骨架必須在同一個 PR（簽核時已決定者為 PR-1）。修改本檔屬 review-process.md R-14 的審查範圍。",
   "items": [
-    { "id": "AC-PS-5", "requirement": "PS-5", "enforced": false },
-    { "id": "AC-PS-8", "requirement": "PS-8", "enforced": false },
-    { "id": "AC-RS-4", "requirement": "RS-4", "enforced": false },
-    { "id": "AC-RS-5", "requirement": "RS-5", "enforced": false },
-    { "id": "AC-RC-9", "requirement": "RC-9", "enforced": false },
-    { "id": "NFR-4", "requirement": "NFR-4", "enforced": false }
-  ]
+    {
+      "id": "AC-PS-5",
+      "requirement": "PS-5",
+      "enforced": false
+    },
+    {
+      "id": "AC-PS-8",
+      "requirement": "PS-8",
+      "enforced": false
+    },
+    {
+      "id": "AC-RS-4",
+      "requirement": "RS-4",
+      "enforced": false
+    },
+    {
+      "id": "AC-RS-5",
+      "requirement": "RS-5",
+      "enforced": false
+    },
+    {
+      "id": "AC-RC-9",
+      "requirement": "RC-9",
+      "enforced": false
+    },
+    {
+      "id": "NFR-4",
+      "requirement": "NFR-4",
+      "enforced": false
+    }
+  ],
+  "version": "0.2"
 }
