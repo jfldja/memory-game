@@ -2,10 +2,10 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.2（依設計審查 design-review.md 修訂） |
+| 版本 | 0.3（依設計審查第 2 輪修訂） |
 | 日期 | 2026-11-04 |
 | 狀態 | 待產品負責人簽核（EQ-6） |
-| 依據 | docs/requirements.md v1.0；spec.md v0.2；agent-dev-workflow 第 3.1 節（測試分工） |
+| 依據 | docs/requirements.md v1.0；spec.md v0.3；agent-dev-workflow 第 3.1 節（測試分工） |
 
 ---
 
@@ -82,7 +82,7 @@
 
 | 項目 | 內容 |
 |---|---|
-| 要測的行為 | `parseRecords` 的 ok／empty／invalid 判定（spec.md 9.2 每條規則）；`serializeRecords` 與 `parseRecords` 來回一致；`mergeWin` 的取代、不取代、相等不取代、兩項各自獨立、保存本次 hintsUsed；`newBestTime`／`newFewestMoves` |
+| 要測的行為 | `parseRecords` 的 ok／empty／invalid 判定（spec.md 9.2 每條規則）；格式不符時的處理範圍依 DQ-4 的決定補寫測試（本模組在 PR-5 實作，DQ-4 決定前不寫預設任一選項的測試）；`serializeRecords` 與 `parseRecords` 來回一致；`mergeWin` 的取代、不取代、相等不取代、兩項各自獨立、保存本次 hintsUsed；`newBestTime`／`newFewestMoves` |
 | 邊界 | 非 JSON、`null`、陣列、`schemaVersion` 為 2、缺一關、`tenths` 為小數／負數／等於上限、`hintsUsed` 為 4、`moves` 為 5；相等值；既有為 null |
 | 對應 | RC-1、RC-3、RC-4、RC-8；AC-RC-1、AC-RC-3、AC-RC-8 |
 | 單元測試 | 全部 |
@@ -249,3 +249,4 @@
 |---|---|---|---|
 | 0.1 | 2026-11-04 | 初稿 | 設計階段產出 |
 | 0.2 | 2026-11-04 | 單元測試以 glob 執行；M3 加入亂數呼叫次數契約；M5 加入顯示值上限與鎖定中失敗的邊界、I-2 適用範圍；M9 依 cards.md 轉換規則改寫禁止清單；M10 移除實作 agent 的端對端 smoke 選項；M12 邊界補略過寫法、多位作者、R-14；3.3 寫明腳本核對方式與結果 | design-review.md M-1、M-2、M-10、M-11、P-11 |
+| 0.3 | 2026-11-04 | M6 註明格式不符的處理範圍依 DQ-4、於 PR-5 實作 | design-review.md 回歸審查（第 2 輪）N-9 |

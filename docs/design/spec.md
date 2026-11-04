@@ -2,7 +2,7 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.2（依設計審查 design-review.md 修訂） |
+| 版本 | 0.3（依設計審查第 2 輪 N-1～N-10 修訂） |
 | 日期 | 2026-11-04 |
 | 狀態 | 待產品負責人簽核（EQ-6）。簽核前須先決定第 16 節待決問題中標為「阻擋 PR-1」者。簽核紀錄見 docs/design/README.md |
 | 撰寫 | 設計 agent |
@@ -172,7 +172,7 @@ game.nextWakeup(now)    // → 下一次畫面需要更新的時間（同一時�
  * }} GameView */
 ```
 
-`GameView.cards[].faceId` 只供畫面層在牌為 `up`／`matched` 且未暫停時決定要畫哪張牌面；背面朝上時畫面層不得把它輸出到 DOM（`data-face` 的處理依 DQ-7 決定）。
+`GameView.cards[].faceId` 只供畫面層在牌為 `up`／`matched` 且未暫停時決定要畫哪張牌面；背面朝上時，畫面層不得把牌面輸出為可見的圖像或可朗讀的名稱；是否以 `data-face` 屬性輸出**依 DQ-7 決定**。
 
 `createGame` 不讀時鐘；遊戲在 `ready` 狀態下不需要時間。第一張牌翻開時以該次 `flip` 的 `now` 作為計時起點（TM-1）。
 
@@ -184,7 +184,7 @@ game.nextWakeup(now)    // → 下一次畫面需要更新的時間（同一時�
  *  @typedef {{ bestTime: TimeRecord|null, fewestMoves: MovesRecord|null }} LevelRecords
  *  @typedef {{ 1: LevelRecords, 2: LevelRecords, 3: LevelRecords }} Records */
 export function emptyRecords();                       // 三關六項皆為 null
-export function parseRecords(text /* string|null */);  // → { records, status: 'ok'|'empty'|'invalid' }
+export function parseRecords(text /* string|null */);  // → { records, status: 'ok'|'empty'|'invalid' }；格式不符時的處理範圍與回傳細節依 DQ-4 決定
 export function serializeRecords(records);           // → string（第 9 節格式）
 export function mergeWin(records, { level, tenths, moves, hintsUsed });
 // → { records, newBestTime: boolean, newFewestMoves: boolean }（RC-1、RC-3、RC-4）
@@ -414,7 +414,7 @@ export function onHidden(callback); // document.visibilitychange 且 document.vi
 
 ### 6.3 時間上限
 
-在 `limitMs` 時刻排程喚醒，T-11 判定失敗。最後一對在 `limitMs` 之前任一時刻配對即為勝利（A-5、AC-LV-6）。
+在 `limitMs` 時刻排程喚醒，T-11 判定失敗。最後一對在顯示值達到上限之前（`limitReached` 尚未成立）配對即為勝利（A-5、AC-LV-6）。
 
 ### 6.4 背景分頁（PS-5，Should）
 
@@ -484,14 +484,14 @@ export function onHidden(callback); // document.visibilitychange 且 document.vi
 5. `fewestMoves` 為 null，或 `{ moves, hintsUsed }`：`moves` 為整數且 `6 ≤ moves ≤ 100000`；`hintsUsed` 為 0～3 的整數。
 6. 多出的欄位忽略。
 
-`invalid` 時的範圍**依 DQ-4 決定**（整份或逐項）；PR-5 開始前必須確認。若採整份（字面）：三關全部視為無紀錄，下一次勝利保存時以新資料覆寫整份，原資料中其他關卡的內容永久遺失（DQ-4 的連帶影響）。不論哪一項，主控台不得出現未處理的錯誤（AC-RC-8）。
+格式不符時的處理範圍**依 DQ-4 決定**（整份、逐項或整份＋備份）；`records.js` 歸 PR-5，DQ-4 決定前不實作任何一個選項的處理範圍。各選項的連帶影響見 DQ-4，例如若採整份（字面）：三關全部視為無紀錄，下一次勝利保存時以新資料覆寫整份，原資料中其他關卡的內容永久遺失（DQ-4 的連帶影響）。不論哪一項，主控台不得出現未處理的錯誤（AC-RC-8）。
 
 ### 9.3 讀寫流程
 
 | 時點 | 動作 |
 |---|---|
 | 頁面載入 | `probeStorage()` 決定是否顯示「紀錄無法保存」；`readRecordsText()` → `parseRecords` → 選單顯示 |
-| 勝利 | **重新讀取** → `parseRecords`（`invalid` 時以 `emptyRecords()` 為基礎）→ `mergeWin` → `writeRecordsText`。`newBestTime`／`newFewestMoves` 提供給結果畫面（RS-4） |
+| 勝利 | **重新讀取** → `parseRecords`（格式不符時的合併基礎依 DQ-4 決定）→ `mergeWin` → `writeRecordsText`。`newBestTime`／`newFewestMoves` 提供給結果畫面（RS-4） |
 | 失敗、回到選單、重新開始、重新整理 | 不讀不寫（RC-2） |
 | 清除紀錄並確認 | `removeRecords()`；取消時不動作（RC-7） |
 
@@ -696,7 +696,7 @@ jobs:
 | 4 | PR-1 的 CI 全部通過、審查紀錄由產品負責人人工確認後 | 合併 PR-1。此時分支保護與審查檢查尚未生效（EQ-2 啟動例外之二，DQ-8） | 手動 |
 | 5 | PR-1 合併後 | Settings → Environments → github-pages → Deployment branches：只允許 `main` | 手動 |
 | 6a | PR-1 合併後、PR-2 開啟前 | Settings → Branches → Add classic branch protection rule，Branch name pattern `main`：<br>☑ Require a pull request before merging（不勾 Require approvals：單一帳號無法核准自己的 PR）<br>☑ Require status checks to pass before merging；☑ Require branches to be up to date before merging；必要檢查：`unit`、`acceptance-ids`、`e2e (chromium)`、`e2e (firefox)`、`e2e (webkit)`、`pr-body`（這些在 PR-1 已執行過，選得到）<br>☑ **Do not allow bypassing the above settings**（套用於管理員，EQ-2）<br>☐ Allow force pushes；☐ Allow deletions | 手動 |
-| 6b | PR-2 開啟、`review-record` 狀態寫入過一次後，**PR-2 合併前** | 在同一條規則加入必要檢查 `review-record`（來源選 GitHub Actions）。`review-record` 在 PR-1 期間不會執行（工作流程尚未在預設分支），所以 6a 時選不到 | 手動 |
+| 6b | PR-2 開啟、`review-record` 狀態寫入過一次後，**PR-2 合併前** | 在同一條規則加入必要檢查 `review-record`（來源選 GitHub Actions）。**6b 完成前，審查 agent 不留 PR-2 的審查紀錄**，以便步驟 8 能在 PR-2 看到 AC-EQ-11 第一步「沒有審查紀錄 → 無法合併」。`review-record` 在 PR-1 期間不會執行（工作流程尚未在預設分支），所以 6a 時選不到 | 手動 |
 | 7 | 6a 後 | Settings → General → Pull Requests：只允許 Squash merging（選用，讓主分支每個 commit 對應一個 PR） | 手動 |
 | 8 | 6b 後 | 依 AC-EQ-2 嘗試直接 push 與合併失敗的 PR，確認被拒絕；依 AC-EQ-11 在 PR-2 驗證審查檢查（無紀錄失敗 → 留紀錄通過 → 推新 commit 再失敗） | 手動 |
 | 9 | M4 UAT 開始時 | 在分支保護規則勾選 **Lock branch**（主分支唯讀），UAT 結束且發布後取消（EQ-14、M4 凍結主分支） | 手動 |
@@ -717,15 +717,15 @@ jobs:
 
 每個 PR 由實作 agent 與測試 agent 共同或先後提交，由不是任何一位作者的審查 agent 審查。驗收骨架在 PR-1 全部建立；之後每個 PR 把對應骨架改為實際測試。
 
-**切分規則：** 驗收在某 PR 轉為實測時，其 Given／When 用到的每個畫面與操作都必須已在該 PR（或更早）存在。下表最後一欄列出這項檢查的依據。
+**切分規則：** 驗收在某 PR 轉為實測時，其 Given／When 用到的每個畫面與操作都必須已在該 PR（或更早）存在。早期 PR 已轉實測的驗收，在後續改寫同一畫面的 PR 中仍須成立（例如 PR-4 以選單取代 PR-1 的首頁時保留版本號）。下表最後一欄列出這項檢查的依據。
 
 | PR | 內容 | 需求編號 | 驗收（骨架轉實測） | Given／When 所需畫面與操作 |
 |---|---|---|---|---|
-| PR-1 基礎 | 目錄結構、package.json、playwright.config、scripts 全部（build、serve、check-acceptance-ids、check-pr-body、review-gate）、四個工作流程、最小可載入的 `index.html`（只顯示 `version` 元素）、PR 範本更新（12.4）、全部驗收骨架（含依 DQ-10 決定啟用的設計補充驗收骨架，與 `enforced` 設定在同一 PR）、設計文件與設計 skill（docs/design/、.claude/skills/software-design-phase/）、.gitignore | EQ-1、EQ-2（設定步驟）、EQ-3、EQ-4、EQ-5、EQ-9、EQ-11、EQ-12、NFR-1 | AC-EQ-4、AC-EQ-9、NFR-7 首頁 | 首頁與版本號元素（PR-1 提供） |
-| PR-2 遊戲邏輯 | core 全部模組＋單元測試 | GP-1～8、TM-1～5、LV-1、LV-5、LV-6、HT-1～10、PS-1～3、PS-9 的邏輯 | AC-GP-2（統計）、AC-LV-5 | 無畫面（U 層） |
+| PR-1 基礎 | 以 branch `design/initial` 為基礎（包含其中設計文件與設計 skill 的 commit；設計文件不另外單獨合併，見 DQ-8）；目錄結構、package.json、playwright.config、scripts 全部（build、serve、check-acceptance-ids、check-pr-body、review-gate）、四個工作流程、最小可載入的 `index.html`（只顯示 `version` 元素）、PR 範本更新（12.4）、全部驗收骨架（含依 DQ-10 決定啟用的設計補充驗收骨架，與 `enforced` 設定在同一 PR）、設計文件與設計 skill（docs/design/、.claude/skills/software-design-phase/）、.gitignore | EQ-1、EQ-2（設定步驟）、EQ-3、EQ-4、EQ-5、EQ-9、EQ-11、EQ-12、NFR-1 | AC-EQ-4、AC-EQ-9、NFR-7 首頁 | 首頁與版本號元素（PR-1 提供） |
+| PR-2 遊戲邏輯 | core 中 `records.js` 以外的模組（config、random、deal、time、game）＋單元測試；`records.js` 歸 PR-5（DQ-4） | GP-1～8、TM-1～5、LV-1、LV-5、LV-6、HT-1～10、PS-1～3、PS-9 的邏輯 | AC-GP-2（統計）、AC-LV-5 | 無畫面（U 層） |
 | PR-3 牌面 | faces.js、config 的 faceIds | LV-2～LV-4 | AC-LV-2、AC-LV-3、AC-LV-4 | 無畫面（U 層） |
-| PR-4 遊戲、選單與結果畫面 | game-view；menu-view 的難度按鈕與進入關卡（不含紀錄、清除）；result-view（勝利／失敗、難度名稱、時間、步數、提示次數、重玩本關、回到選單；不含新紀錄與挑戰下一個難度）；遊戲中回到選單；app 路由；clock；版面與 iOS 對策 | GP-1～8、TM-1～4、LV-1、LV-6～LV-9、HT-1～10、PS-1～4、PS-7（不含紀錄部分）、PS-9、PS-10、RS-1～3、NFR-3、NFR-5、NFR-6、NFR-7 | AC-GP-1～8（AC-GP-2 的 E 層）、AC-TM-1～4、AC-LV-1、AC-LV-6、AC-LV-7、AC-LV-8、AC-LV-9、AC-HT-1～5、AC-HT-7～10、AC-PS-1～4、AC-PS-9、AC-PS-10、AC-RS-1～3、NFR-3、NFR-5 遊戲畫面、NFR-5 選單、NFR-5 結果畫面、NFR-6、NFR-7 選單、NFR-7 三關遊玩、NFR-7 結果畫面 | 選單進入關卡、遊戲畫面、結果畫面、重玩本關、回到選單（皆在本 PR）；AC-LV-7「沒有任何紀錄」在無紀錄功能時自然成立 |
-| PR-5 紀錄 | records、storage、選單的紀錄顯示、清除紀錄與確認對話框、勝利時保存 | RC-1～8、TM-5（紀錄部分）、PS-7（紀錄不變） | AC-TM-5、AC-PS-7、AC-RC-1～8、NFR-5 清除紀錄對話框 | 選單紀錄顯示、對話框（本 PR）；其餘在 PR-4 |
+| PR-4 遊戲、選單與結果畫面 | game-view；menu-view 的難度按鈕與進入關卡（不含紀錄、清除）＋選單頁尾的版本號（`version` 元素，維持 PR-1 已實測的 AC-EQ-9 與「NFR-7 首頁」）；result-view（勝利／失敗、難度名稱、時間、步數、提示次數、重玩本關、回到選單；不含新紀錄與挑戰下一個難度）；遊戲中回到選單；app 路由；clock；版面與 iOS 對策 | GP-1～8、TM-1～4、LV-1、LV-6～LV-9、HT-1～10、PS-1～4、PS-7（不含紀錄部分）、PS-9、PS-10、RS-1～3、NFR-3、NFR-5、NFR-6、NFR-7、EQ-9（保留） | AC-GP-1～8（AC-GP-2 的 E 層）、AC-TM-1～4、AC-LV-1、AC-LV-6、AC-LV-7、AC-LV-8、AC-LV-9、AC-HT-1～5、AC-HT-7～10、AC-PS-1～4、AC-PS-9、AC-PS-10、AC-RS-1～3、NFR-3、NFR-5 遊戲畫面、NFR-5 選單、NFR-5 結果畫面、NFR-6、NFR-7 選單、NFR-7 三關遊玩、NFR-7 結果畫面；AC-EQ-9、NFR-7 首頁（PR-1 已實測，本 PR 須維持通過） | 選單進入關卡、遊戲畫面、結果畫面、重玩本關、回到選單（皆在本 PR）；AC-LV-7「沒有任何紀錄」在無紀錄功能時自然成立 |
+| PR-5 紀錄 | core/records.js（依 DQ-4 的決定）、storage、選單的紀錄顯示、清除紀錄與確認對話框、勝利時保存 | RC-1～8、TM-5（紀錄部分）、PS-7（紀錄不變） | AC-TM-5、AC-PS-7、AC-RC-1～8、NFR-5 清除紀錄對話框 | 選單紀錄顯示、對話框（本 PR）；其餘在 PR-4 |
 | PR-6 Should 需求 | 依 DQ-10 的決定 | PS-5、PS-8、RS-4、RS-5、RC-9、NFR-4、EQ-10 | 設計補充驗收 | 依各項 |
 | PR-7 M3 收尾 | CI 的 `acceptance-ids` 加上 `--no-skip` | M3 離開條件 | 全部 | — |
 
@@ -761,13 +761,13 @@ PR-1、PR-2 的特別處理見 12.6 步驟 4、6b（DQ-8）。
 | DQ-1 | PS-8「重新開始本關」在暫停中、尚未開始計時時是否可用？需求 6.9 沒有「重新開始」欄 | 依 3.8 列操作時發現 6.9 只列了 Must 操作 | 建議兩者皆可用，效果同「回到選單後再進入同一關」（與 PS-7 在相同狀態下可用一致） | PR-6（PS-8） |
 | DQ-2 | PS-5 自動暫停後回到前景時，自動繼續還是維持暫停？ | PS-5 只規定進入背景的行為 | 建議維持暫停，由玩家按「繼續」；自動繼續會讓剛切回來、尚未看清畫面的玩家損失時間 | PR-6（PS-5） |
 | DQ-3 | RS-4「新紀錄」在該關**尚無紀錄**時是否標示？需求只寫「優於既有紀錄時」 | 寫 `mergeWin` 回傳值時發現 | 建議標示。若採用，由統籌 agent 依 requirements-spec 修訂 RS-4（例如「優於既有紀錄或該項尚無紀錄時」）並升版需求文件；設計不逕行假定 | PR-6（RS-4） |
-| DQ-4 | RC-8「格式不符」是整份資料視為無紀錄，還是只把不符的那一項視為無紀錄？ | 設計驗證規則時發現 | 選項 (a) 整份（字面）：實作簡單；**連帶影響：下一次勝利保存時會以新資料覆寫整份，其他關卡原本可能仍有效的紀錄永久遺失**。(b) 逐項：只捨棄不符的項目，其餘保留；驗證與合併較複雜，需另定「部分有效」時是否改寫其他項目。(c) 整份視為無紀錄，但覆寫前把原始字串另存備份鍵：保留復原可能，但需求沒有復原功能，備份不會被使用。建議 (a)，因為格式不符只會在資料被外部改寫或版本不相容時發生；若產品負責人重視保留紀錄，選 (b) | PR-5（RC-8）；未決定前依字面 (a) 設計，但 PR-5 開始前必須確認 |
+| DQ-4 | RC-8「格式不符」是整份資料視為無紀錄，還是只把不符的那一項視為無紀錄？ | 設計驗證規則時發現 | 選項 (a) 整份（字面）：實作簡單；**連帶影響：下一次勝利保存時會以新資料覆寫整份，其他關卡原本可能仍有效的紀錄永久遺失**。(b) 逐項：只捨棄不符的項目，其餘保留；驗證與合併較複雜，需另定「部分有效」時是否改寫其他項目。(c) 整份視為無紀錄，但覆寫前把原始字串另存備份鍵：保留復原可能，但需求沒有復原功能，備份不會被使用。建議 (a)，因為格式不符只會在資料被外部改寫或版本不相容時發生；若產品負責人重視保留紀錄，選 (b) | PR-5（`records.js` 與 RC-8）；決定前不實作任何選項 |
 | DQ-5 | RC-9 儲存不可用時，本次開啟期間的勝利是否在選單顯示（只存在記憶體）？ | 設計 RC-9 時發現 | 建議顯示，並保留「紀錄無法保存」提示；關閉頁面後消失 | PR-6（RC-9） |
 | DQ-6 | `requirements-spec` 沒有變更紀錄，PR 說明無法填寫其版本號，workflow.md 4.4 的證明對它無效 | 上工檢查時發現 | 建議產品負責人為 requirements-spec 加上變更紀錄。在此之前採 12.4 第 3 點的過渡規則（填「無版本號」，檢查記為警告） | PR-1（`check-pr-body` 的規則） |
-| DQ-7 | 端對端測試如何得知牌面配置？`data-face` 讓背面朝上的牌在 DOM 中帶有牌面識別碼，玩家用開發者工具即可看到全部答案；需求以 Q8、PS-4 的決定顯示重視「不讓玩家取得不該有的資訊」 | 設計 DOM 測試介面時發現（設計審查 B-2 指出原以假設處理不當） | (a) **保留 `data-face`（所有牌皆帶）並接受**：成本最低，測試最簡單；影響：任何玩家可由開發者工具得知答案。(b) **測試控制亂數**：DOM 不帶牌面識別碼；測試以 `page.addInitScript` 包裝 `crypto.getRandomValues`，可指定或記錄亂數，並在 Node.js 以同一份 `deal` 重算配置；正式程式不變。成本：中，測試依賴「每次 `deal` 恰呼叫 11 次 `randomInt`、拒絕取樣不觸發時每次呼叫一次 `getRandomValues`」這項介面契約，需寫入 4.3 並由單元測試固定。(c) **只在正面朝上時輸出 `data-face`**（只透露畫面上已看得到的資訊）：DOM 不洩漏；測試要找同一對須先翻牌探索，AC-GP-1、AC-GP-2（E 層）需逐對翻開全部牌，測試輔助較複雜、執行較久（控制時鐘下仍快）。(d) **測試專用建置**（建置參數開啟除錯掛鉤）：成本低，但端對端測的不是發布的檔案，違反「測試受測的版本」，不建議。**建議 (b)＋(c) 併用**：正面朝上的牌帶 `data-face`（驗證顯示內容），配置由 (b) 取得；不洩漏答案，正式程式不需測試入口 | **PR-1**（DOM 測試介面與 E 層骨架的寫法） |
-| DQ-8 | EQ-2「主分支只能透過 PR 變更，套用於管理員」的兩個啟動例外是否接受：(1) 初始 commit 已直接推送；(2) PR-1 在分支保護與審查檢查生效前合併（審查紀錄由產品負責人人工確認）。另 `review-record` 須在 PR-2 寫入過一次才能加為必要檢查（12.6 步驟 6b） | 設計啟動程序時發現（設計審查 M-7） | 建議接受，並在 UAT 紀錄或 release notes 註明；技術上沒有不經例外的啟動方式（開 PR 需要基底分支；`issue_comment` 工作流程只在預設分支生效） | **PR-1** |
+| DQ-7 | 端對端測試如何得知牌面配置？`data-face` 讓背面朝上的牌在 DOM 中帶有牌面識別碼，玩家用開發者工具即可看到全部答案；需求以 Q8、PS-4 的決定顯示重視「不讓玩家取得不該有的資訊」 | 設計 DOM 測試介面時發現（設計審查 B-2 指出原以假設處理不當） | (a) **保留 `data-face`（所有牌皆帶）並接受**：成本最低，測試最簡單；影響：任何玩家可由開發者工具得知答案。(b) **測試控制亂數**：DOM 不帶牌面識別碼；測試以 `page.addInitScript` 包裝 `crypto.getRandomValues`，可指定或記錄亂數，並在 Node.js 以同一份 `deal` 重算配置；正式程式不變。成本：中，測試依賴「每次 `deal` 恰呼叫 11 次 `randomInt`」這項介面契約（4.3，由單元測試固定）。**重算方式：** 測試記錄 `getRandomValues` 的**全部**輸出（依呼叫順序），在 Node.js 以 `src/js/core/random.js` 的 `createCryptoRandomInt` 搭配一個依序回放這些輸出的假 `cryptoObj`，再呼叫 `deal.js` 重放；不得假設「每局固定取 11 個值」，因為拒絕取樣偶爾會多取（機率約 n／2³²），提示選牌（T-8）也會消耗亂數。(c) **只在正面朝上時輸出 `data-face`**（只透露畫面上已看得到的資訊）：DOM 不洩漏；測試要找同一對須先翻牌探索，AC-GP-1、AC-GP-2（E 層）需逐對翻開全部牌，測試輔助較複雜、執行較久（控制時鐘下仍快）。(d) **測試專用建置**（建置參數開啟除錯掛鉤）：成本低，但端對端測的不是發布的檔案，違反「測試受測的版本」，不建議。**建議 (b)＋(c) 併用**：正面朝上的牌帶 `data-face`（驗證顯示內容），配置由 (b) 取得；不洩漏答案，正式程式不需測試入口 | **PR-1**（DOM 測試介面與 E 層骨架的寫法） |
+| DQ-8 | EQ-2「主分支只能透過 PR 變更，套用於管理員」的啟動例外是否接受：(1) 初始 commit 已直接推送；(2) PR-1 在分支保護與審查檢查生效前合併（審查紀錄由產品負責人人工確認）；(3) 設計文件目前在 branch `design/initial`（commit `c41913a`、`49aa1eb`、`cadf291` 及之後的修訂）：設計規定以它為 PR-1 的基礎、不單獨合併；若產品負責人選擇先以獨立 PR 合併設計文件，該合併同樣不受審查檢查與分支保護約束，屬第三個例外。另 `review-record` 須在 PR-2 寫入過一次才能加為必要檢查（12.6 步驟 6b） | 設計啟動程序時發現（設計審查 M-7） | 建議接受 (1)、(2)，並讓設計文件隨 PR-1 合併以避免 (3)；在 UAT 紀錄或 release notes 註明。技術上沒有不經例外的啟動方式（開 PR 需要基底分支；`issue_comment` 工作流程只在預設分支生效） | **PR-1** |
 | DQ-9 | EQ-12「10 分鐘內」與官方「最多可能需要 10 分鐘」相同，沒有餘裕。GitHub 端延遲造成 `smoke` 或 AC-EQ-12 失敗時如何處理？ | 查證 Q6 時發現 | 建議：`smoke` 失敗時重新執行該工作流程一次並記錄兩次的時間；若 AC-EQ-12 人工驗收時超過 10 分鐘，記為外部因素造成的觀察，連同 GitHub Status 當時狀態回報產品負責人，由產品負責人判定是否視為通過，不修改程式 | PR-1（`smoke` 的失敗處理） |
-| DQ-10 | Should 需求（PS-5、PS-8、RS-4、RS-5、RC-9、NFR-4、EQ-10）本輪是否實作，以及第 15 節的設計補充驗收是否採用 | 追溯矩陣標為「設計階段補」 | 建議全部本輪實作，並在設計簽核時一併決定，讓 PR-1 依決定設定 `enforced` 並加入骨架 | **PR-1**（骨架與 `enforced`） |
+| DQ-10 | Should 需求（PS-5、PS-8、RS-4、RS-5、RC-9、NFR-4、EQ-10）本輪是否實作，以及第 15 節的設計補充驗收是否採用 | 追溯矩陣把 PS-5、PS-8、RS-4、RS-5、RC-9、EQ-10 的驗收標為「設計階段補」；NFR-4 為 Should 的非功能需求（矩陣中驗收為「量測方法」） | 建議全部本輪實作，並在設計簽核時一併決定，讓 PR-1 依決定設定 `enforced` 並加入骨架 | **PR-1**（骨架與 `enforced`） |
 
 ---
 
@@ -789,3 +789,4 @@ PR-1、PR-2 的特別處理見 12.6 步驟 4、6b（DQ-8）。
 |---|---|---|---|
 | 0.1 | 2026-11-04 | 初稿 | 依需求文件 v1.0 進行設計 |
 | 0.2 | 2026-11-04 | 依設計審查修訂：PR 切分（第 14 節，選單與結果畫面移入 PR-4，新增 Given／When 檢查欄）；DA-4 移為 DQ-7，DOM 介面受影響處標「依 DQ-7 決定」，新增 `data-shown`、`data-role`；I-2、I-5、T-11 修正；時間上限一律以顯示值判定（5.3、5.4）；版面固定高度、按鈕 48 px、4 px 餘裕並重算（10.2）；移除 `viewport-fit=cover`（10.4）；CI 並行群組、注入防護、`node --test` 改用 glob、NFR-6 獨立 project（12.1、12.3）；略過偵測擴充（12.2）；多位作者解析與 requirements-spec 過渡規則（12.4）；啟動程序 0、6a、6b、9（12.6）；補充驗收啟用規則（15）；新增 DQ-7～DQ-10，DQ-4 補連帶影響、DQ-3 改由統籌 agent 修訂需求 | design-review.md B-1、B-2、M-1～M-12、P-3、P-4、P-5、P-7、P-8、P-9 |
+| 0.3 | 2026-11-04 | 4.5 不再預先排除 DQ-7 選項 (a)；6.3 改以顯示值描述勝利；`records.js` 移到 PR-5，9.2、9.3、DQ-4 不預設任一選項；PR-4 保留版本號元素並列 EQ-9；切分規則補「已實測的驗收在後續 PR 仍須成立」；12.6 步驟 6b 前審查 agent 不留 PR-2 紀錄；PR-1 以 `design/initial` 為基礎，DQ-8 加入例外 (3)；DQ-7 選項 (b) 補重算方式；DQ-10 修正發現情境 | design-review.md 回歸審查（第 2 輪）N-1、N-2、N-4～N-7、N-9、N-10 |
