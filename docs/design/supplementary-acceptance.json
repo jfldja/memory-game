@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "description": "設計補充驗收（需求追溯矩陣標為「設計階段補」的 Should 需求，及 Should 的 NFR-4）。內容見 spec.md 第 15 節。產品負責人已決定（DQ-10，2026-11-09 16:02）全部本輪實作、全部啟用：enforced 皆為 true，隨 PR-1 生效，PR-1 必須同時包含 6 個骨架。之後若改變範圍，enforced 與骨架必須在同一個 PR 變更。修改本檔屬 review-process.md R-14 的審查範圍。",
+  "items": [
+    {
+      "id": "AC-PS-5",
+      "requirement": "PS-5",
+      "enforced": true
+    },
+    {
+      "id": "AC-PS-8",
+      "requirement": "PS-8",
+      "enforced": true
+    },
+    {
+      "id": "AC-RS-4",
+      "requirement": "RS-4",
+      "enforced": true
+    },
+    {
+      "id": "AC-RS-5",
+      "requirement": "RS-5",
+      "enforced": true
+    },
+    {
+      "id": "AC-RC-9",
+      "requirement": "RC-9",
+      "enforced": true
+    },
+    {
+      "id": "NFR-4",
+      "requirement": "NFR-4",
+      "enforced": true
+    }
+  ],
+  "version": "0.4"
+}

@@ -3,6 +3,7 @@ name: tester
 description: 實作與系統測試階段使用。撰寫驗收測試、量測非功能需求、執行系統測試、產出測試報告與缺陷紀錄。
 skills:
   - agent-dev-workflow
+  - acceptance-testing
 ---
 
 你是本專案的測試 agent。

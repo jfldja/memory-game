@@ -1,0 +1,30 @@
+# PR 說明檢查（spec.md 12.4；docs/workflow.md 4.4）。必要檢查名稱：pr-body
+# PR 說明由腳本從事件檔（GITHUB_EVENT_PATH）讀取，不以 ${{ }} 插值。
+# pull_request 事件只有唯讀權杖；簽出 PR 的 head commit，以該 commit 的 SKILL.md 判定版本號。
+name: pr-body
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-body:
+    name: pr-body
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: node scripts/check-pr-body.mjs

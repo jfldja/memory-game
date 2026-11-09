@@ -1,0 +1,76 @@
+# CI（spec.md 12.1、12.3；EQ-3、EQ-4、NFR-1）
+# 必要檢查名稱：unit、acceptance-ids、e2e (chromium)、e2e (firefox)、e2e (webkit)
+# 安全：不在 run: 中以 ${{ }} 插值任何使用者可控的事件內容；只以 env: 傳入 SHA 與矩陣值。
+name: ci
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  unit:
+    name: unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      # 以引號傳 glob：Node.js 22 傳入目錄會以「Cannot find module」失敗（spec.md 12.1）
+      - run: node --test 'tests/unit/**/*.test.mjs' 'tests/acceptance/unit/**/*.test.mjs'
+
+  acceptance-ids:
+    name: acceptance-ids
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - run: node scripts/check-acceptance-ids.mjs
+
+  e2e:
+    name: e2e (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      BROWSER: ${{ matrix.browser }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps "$BROWSER"
+      - name: build
+        # PR 用 head commit，不用 GITHUB_SHA（pull_request 事件的 GITHUB_SHA 是合併 commit；spec.md 第 11 節）
+        env:
+          BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/build.mjs
+      - name: e2e
+        env:
+          CI: 'true'
+        run: npx playwright test --project="$BROWSER"
+      - name: e2e realtime (NFR-6)
+        env:
+          CI: 'true'
+        run: npx playwright test --project="$BROWSER-realtime" --workers=1

@@ -3,6 +3,8 @@ name: designer
 description: 設計階段使用。依已簽核的需求文件產出軟體規格書、模組測試標準與設計 skill。
 skills:
   - agent-dev-workflow
+  - software-design-phase
+  - requirements-spec
 ---
 
 你是本專案的設計 agent。

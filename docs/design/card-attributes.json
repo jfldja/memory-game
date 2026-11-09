@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "description": "牌面屬性表（v0.2）（需求 LV-2～LV-4、AC-LV-2～AC-LV-4、U-3）。id 為牌面識別碼，程式與測試共用。",
+  "attributes": {
+    "shape": {
+      "circle": "圓形",
+      "square": "正方形",
+      "triangle": "三角形",
+      "star": "五角星",
+      "diamond": "菱形",
+      "hexagon": "六邊形",
+      "cross": "十字"
+    },
+    "color": {
+      "blue": {
+        "name": "藍",
+        "hex": "#0072B2"
+      },
+      "orange": {
+        "name": "橙",
+        "hex": "#E69F00"
+      },
+      "green": {
+        "name": "藍綠",
+        "hex": "#009E73"
+      },
+      "vermillion": {
+        "name": "朱紅",
+        "hex": "#D55E00"
+      },
+      "purple": {
+        "name": "紫紅",
+        "hex": "#CC79A7"
+      },
+      "yellow": {
+        "name": "黃",
+        "hex": "#F0E442"
+      }
+    },
+    "detail": {
+      "none": "無",
+      "lines-horizontal": "三條水平線",
+      "lines-vertical": "三條垂直線",
+      "lines-diag-down": "三條斜線（＼，左上到右下）",
+      "lines-diag-up": "三條斜線（／，左下到右上）",
+      "grid-straight": "方格（水平＋垂直）",
+      "grid-diagonal": "斜方格（＼＋／）"
+    }
+  },
+  "levels": [
+    {
+      "level": 1,
+      "name": "簡單",
+      "faces": [
+        {
+          "id": "L1-1",
+          "shape": "circle",
+          "color": "blue",
+          "detail": "none"
+        },
+        {
+          "id": "L1-2",
+          "shape": "square",
+          "color": "orange",
+          "detail": "none"
+        },
+        {
+          "id": "L1-3",
+          "shape": "triangle",
+          "color": "green",
+          "detail": "none"
+        },
+        {
+          "id": "L1-4",
+          "shape": "star",
+          "color": "vermillion",
+          "detail": "none"
+        },
+        {
+          "id": "L1-5",
+          "shape": "diamond",
+          "color": "purple",
+          "detail": "none"
+        },
+        {
+          "id": "L1-6",
+          "shape": "hexagon",
+          "color": "yellow",
+          "detail": "none"
+        }
+      ]
+    },
+    {
+      "level": 2,
+      "name": "普通",
+      "faces": [
+        {
+          "id": "L2-1",
+          "shape": "circle",
+          "color": "blue",
+          "detail": "none"
+        },
+        {
+          "id": "L2-2",
+          "shape": "square",
+          "color": "blue",
+          "detail": "none"
+        },
+        {
+          "id": "L2-3",
+          "shape": "triangle",
+          "color": "blue",
+          "detail": "none"
+        },
+        {
+          "id": "L2-4",
+          "shape": "diamond",
+          "color": "blue",
+          "detail": "none"
+        },
+        {
+          "id": "L2-5",
+          "shape": "hexagon",
+          "color": "blue",
+          "detail": "none"
+        },
+        {
+          "id": "L2-6",
+          "shape": "cross",
+          "color": "blue",
+          "detail": "none"
+        }
+      ]
+    },
+    {
+      "level": 3,
+      "name": "困難",
+      "faces": [
+        {
+          "id": "L3-1",
+          "shape": "circle",
+          "color": "vermillion",
+          "detail": "lines-horizontal"
+        },
+        {
+          "id": "L3-2",
+          "shape": "circle",
+          "color": "vermillion",
+          "detail": "lines-vertical"
+        },
+        {
+          "id": "L3-3",
+          "shape": "circle",
+          "color": "vermillion",
+          "detail": "lines-diag-down"
+        },
+        {
+          "id": "L3-4",
+          "shape": "circle",
+          "color": "vermillion",
+          "detail": "lines-diag-up"
+        },
+        {
+          "id": "L3-5",
+          "shape": "circle",
+          "color": "vermillion",
+          "detail": "grid-straight"
+        },
+        {
+          "id": "L3-6",
+          "shape": "circle",
+          "color": "vermillion",
+          "detail": "grid-diagonal"
+        }
+      ]
+    }
+  ]
+}

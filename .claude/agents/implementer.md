@@ -3,6 +3,7 @@ name: implementer
 description: 實作階段使用。依已簽核的設計撰寫程式碼與模組單元測試、開 Pull Request、修正缺陷。
 skills:
   - agent-dev-workflow
+  - implementation-phase
 ---
 
 你是本專案的實作 agent。
