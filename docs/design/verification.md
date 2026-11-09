@@ -150,6 +150,8 @@
 
 實測紀錄（本機，Node.js 22.23.4、Playwright 1.63.0；spec.md 12.2.1 的依據）：node:test 自訂 reporter 的事件含 `file`、`skip`、`todo`，略過的 `describe` 內的測試不出現在結果中，內建 JUnit reporter 沒有檔名；Playwright json reporter 中 `test.fail()` 的測試為 `expectedStatus: failed`、`status: expected`，計入 `stats.expected`；本體內 `test.skip()`、條件略過、`testInfo.skip()`、`annotation: { type: 'skip' }`、別名呼叫皆為 `expectedStatus: skipped`；`test.describe.serial.skip` 不存在，載入時 TypeError。
 
+第 3 輪審查後的實測（同一環境；spec.md 12.2.1 第 6 項的依據）：Playwright `json` reporter 的 `steps` 不含 `expect`；自訂 reporter 的 `onStepEnd` 收到 `category: 'expect'` 的步驟，計數為：空本體 0、第一個斷言前 `return` 0、`expect.soft` 1、`expect.poll` 2、`test.step` 內的 `expect` 1、被 `try/catch` 吞掉的失敗斷言 1 且帶 `error`（測試狀態仍為 `passed`）。node:test：在輔助模組最上層註冊的 `beforeEach`／`afterEach` 套用於匯入它的測試檔，`afterEach` 中 `t.diagnostic(…)` 的事件帶有該測試的 `file`、`line`、`column`，與 `test:pass` 相同，可據以對應；略過的測試不執行 hook；以包裝 `test` 的函式註冊測試時，事件的 `file`、`line` 變成包裝模組的位置，不可行。NFKC 不移除 U+200B（設計審查第 3 輪實測，本輪未重做）。
+
 ## 3. 結論摘要
 
 | 編號 | 結論 | 建議 |
@@ -167,3 +169,4 @@
 | 0.2 | 2026-11-04 | review-gate 觸發加入 `edited`；EQ-2 啟動例外、`review-record` 的兩段設定、EQ-12 外部延遲改列為待決問題 DQ-8、DQ-9 | design-review.md M-7 與「未列為待決的事項」第 2、3 點 |
 | 0.4 | 2026-11-09 | DQ-8、DQ-9 改為已決定並寫明處理方式；依據改為需求 v1.1；查證內容未變更 | 產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定；需求文件 v1.1 |
 | 0.5 | 2026-11-09 | 2.3、2.5：`review-record` 的必要檢查與 AC-EQ-11 驗證由 PR-2 改到 PR-1b；新增 2.6 PR-1 合併後的平台狀態（API 讀取）與執行結果格式的實測；第 3 節未查證項目補註 | agent-dev-workflow 1.1 第 4.3 節「啟動例外以外不得再有不經檢查的合併」；PR-1 審查紀錄 N-2 |
+| 0.5（第 3 輪審查修訂） | 2026-11-09 | 2.6 補斷言計數的實測（Playwright 自訂 reporter、node:test hook 與 diagnostic） | design-review.md 設計審查第 3 輪 M-1 |

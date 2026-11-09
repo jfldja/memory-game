@@ -2,7 +2,7 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.5（PR-1 審查 N-1～N-6 與實作、測試 agent 回報的修正；新增 PR-1b） |
+| 版本 | 0.5（PR-1 審查 N-1～N-6 與實作、測試 agent 回報的修正；新增 PR-1b；含設計審查第 3 輪修訂） |
 | 日期 | 2026-11-09 |
 | 狀態 | v0.4 已簽核（2026-11-09 16:12）；**v0.5 待產品負責人簽核**（EQ-6）。v0.5 新增待決問題 DQ-11、DQ-12（第 16 節）。簽核紀錄見 docs/design/README.md |
 | 撰寫 | 設計 agent |
@@ -83,7 +83,8 @@
 │  ├─ serve.mjs                  本機靜態伺服器（Node.js 內建 http，無相依）
 │  ├─ check-acceptance-ids.mjs   EQ-4 編號覆蓋檢查（靜態，12.2）
 │  ├─ check-acceptance-results.mjs  驗收測試執行結果檢查（12.2.1）
-│  ├─ acceptance-reporter.mjs    node:test 自訂 reporter，輸出驗收測試執行結果（12.2.1）
+│  ├─ acceptance-reporter.mjs    node:test 自訂 reporter，輸出驗收測試執行結果與斷言計數（12.2.1）
+│  ├─ acceptance-reporter-pw.mjs Playwright 自訂 reporter，同上（12.2.1）
 │  ├─ check-pr-body.mjs          PR 說明檢查（workflow.md 4.4）
 │  └─ review-gate.mjs            EQ-11 審查紀錄判定
 ├─ .github/
@@ -636,7 +637,7 @@ export function onHidden(callback); // document.visibilitychange 且 document.vi
 |---|---|---|---|---|
 | ci.yml | `unit` | `pull_request`（opened、synchronize、reopened）、`push` 到 main | 步驟 1：`node --test 'tests/unit/**/*.test.mjs'`。步驟 2：`node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/acceptance-reporter.mjs --test-reporter-destination=<結果檔> 'tests/acceptance/unit/**/*.test.mjs'`。步驟 3：`node scripts/check-acceptance-results.mjs --layer unit <結果檔>`（12.2.1）。以引號傳 glob（本次實測 Node.js 22 傳入**目錄**會以「Cannot find module」失敗，傳 glob 可正確執行）。v0.5 起兩類測試分兩次執行，是為了取得只含驗收測試的結果檔；執行的測試集合不變 | EQ-3、EQ-4、M3 離開條件 |
 | ci.yml | `acceptance-ids` | 同上 | `node scripts/check-acceptance-ids.mjs` | EQ-4 |
-| ci.yml | `e2e (chromium)`、`e2e (firefox)`、`e2e (webkit)` | 同上 | 矩陣三引擎；job 層級 `env: BUILD_SHA=<PR head sha>`（第 11 節）；建置；`npx playwright install --with-deps <引擎>`；第一步 `npx playwright test --project=<引擎>`；第二步 `npx playwright test --project=<引擎>-realtime --workers=1`（NFR-6，見 12.3）；兩步各以 Playwright `json` reporter 另外輸出結果檔；第三步 `node scripts/check-acceptance-results.mjs --layer e2e <兩個結果檔>`（12.2.1） | EQ-3、NFR-1、EQ-9、M3 離開條件 |
+| ci.yml | `e2e (chromium)`、`e2e (firefox)`、`e2e (webkit)` | 同上 | 矩陣三引擎；job 層級 `env: BUILD_SHA=<PR head sha>`（第 11 節）；建置；`npx playwright install --with-deps <引擎>`；第一步 `npx playwright test --project=<引擎>`；第二步 `npx playwright test --project=<引擎>-realtime --workers=1`（NFR-6，見 12.3）；兩步各以自訂 reporter `scripts/acceptance-reporter-pw.mjs` 另外輸出結果檔；第三步 `node scripts/check-acceptance-results.mjs --layer e2e <兩個結果檔>`（12.2.1） | EQ-3、NFR-1、EQ-9、M3 離開條件 |
 | pr-body.yml | `pr-body` | `pull_request`（opened、edited、synchronize、reopened） | `node scripts/check-pr-body.mjs`（12.4） | workflow.md 4.4 |
 | review-gate.yml | （寫入 commit status `review-record`） | `pull_request_target`（opened、synchronize、reopened、edited；edited 讓 PR 說明的作者工作階段變更時重新判定）、`issue_comment`（created、edited、deleted） | `node scripts/review-gate.mjs`（第 13 節、review-process.md 第 4 節） | EQ-5、EQ-11 |
 | deploy.yml | `deploy`、`smoke` | `push` 到 main | 建置 → upload-pages-artifact → deploy-pages；`smoke` 輪詢公開網址版本號 | EQ-9、EQ-12 |
@@ -663,19 +664,22 @@ v0.5 修訂（PR-1 審查 N-2 與實作、測試 agent 回報）：掃描範圍�
    - 第 13 節追溯矩陣中優先為 M、驗證為「自動」的 NFR，排除 NFR-1（EQ-4 例外）。
 2. 讀取 `docs/design/supplementary-acceptance.json` 中 `enforced: true` 的設計補充驗收編號（Should 需求，第 15 節）。
 3. **掃描範圍（v0.5）：** 採計覆蓋的測試**只來自** `tests/acceptance/`。`tests/unit/`（實作 agent 的模組單元測試）的測試名稱**一律不採計**為覆蓋，不論是否含編號。理由：EQ-4 要求的是驗收測試（agent-dev-workflow 3.1），單元測試由實作 agent 撰寫；若採計，實作 agent 可以用單元測試「冒充」驗收，等於放寬 EQ-4，也違反「寫程式的人不判定自己合格」。
-4. **驗收測試檔的位置（v0.5）：** `tests/acceptance/` 下的測試檔只能是 `tests/acceptance/unit/**/*.test.mjs`（由 `unit` job 的 glob 執行）或 `tests/acceptance/e2e/**/*.spec.mjs`（由 Playwright `testDir` 執行）。其他位置或副檔名的 `*.test.mjs`／`*.spec.mjs`（例如 `tests/acceptance/x.test.mjs`、`tests/acceptance/unit/x.spec.mjs`）會被靜態掃描看到、卻不會被任何執行器執行，一律判定失敗並列出檔名。
+4. **驗收測試檔的位置（v0.5）：** `tests/acceptance/` 下的測試檔只能是 `tests/acceptance/unit/**/*.test.mjs`（由 `unit` job 的 glob 執行）或 `tests/acceptance/e2e/**/*.spec.mjs`（由 Playwright `testDir` 執行）。其他位置或副檔名的測試檔，一律判定失敗並列出檔名：判定對象是 `tests/acceptance/` 下檔名符合 `*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}` 的**任何**檔案（第 3 輪審查 P-3：Playwright 預設 `testMatch` 也會執行 `*.spec.js`、`*.test.ts` 等），例如 `tests/acceptance/x.test.mjs`、`tests/acceptance/unit/x.spec.mjs`、`tests/acceptance/e2e/x.test.ts`。前兩者會被靜態掃描看到、卻不會被執行；後者會被 Playwright 執行、卻不在靜態掃描中。12.3 同時把 Playwright 一般 project 的 `testMatch` 限定為 `*.spec.mjs`，讓執行範圍與本點一致。
 5. **單元測試不得帶驗收編號（v0.5）：** 掃描 `tests/unit/**/*.test.mjs` 的測試名稱（同第 6 點的收集規則），任一名稱以完整編號比對含有第 1、2 點的必要編號時失敗，列出檔名、行號與編號。這把 module-test-standards.md 第 1 節「單元測試不得以驗收編號命名」改為檢查強制；與第 3 點並用：第 3 點讓冒充無效，本點讓冒充與誤命名在 PR 中就被發現。只比對必要編號（例如 `NFR-1` 不是必要編號，不受限）。
 6. 收集測試名稱：靜態掃描上述檔案中 `test(`、`it(`、`describe(`、`test.describe(` 及其 `.skip`、`.fixme`、`.todo`、`.only` 變體的第一個字串參數。不採計註解與字串資料中的內容。
 7. 每個必要編號至少出現在 `tests/acceptance/` 的一個測試名稱中（以完整編號比對，`AC-GP-1` 不得被 `AC-GP-10` 誤判），否則列出缺少的編號並以非零狀態結束。
-8. **驗收測試的略過寫法（v0.5）：** `tests/acceptance/` 中**唯一允許**的略過寫法是骨架宣告：在檔案最上層（不在任何 `describe` 內）呼叫 `test.skip(<名稱字串>, <函式>)`，第一個參數是字串字面值、第二個參數是函式。下列寫法在 `tests/acceptance/` 中**一律判定失敗**（不論是否有 `--no-skip`），列出檔名與行號：
+8. **驗收測試的略過寫法（v0.5）：** `tests/acceptance/` 中**唯一允許**的略過寫法是骨架宣告：在檔案最上層（不在任何 `describe` 內）呼叫 `test.skip(<名稱字串>, <函式>)`，第一個參數是字串字面值、第二個參數是**本體為空**的函式（`() => {}` 或 `async () => {}`，可帶參數，本體不得有任何敘述；第 3 輪審查 M-1）。本點只掃描測試檔（第 4 點的檔案）；`tests/support/` 的輔助模組不做靜態掃描，由 12.2.1 的執行結果涵蓋。下列寫法在 `tests/acceptance/` 中**一律判定失敗**（不論是否有 `--no-skip`），列出檔名與行號：
    - 宣告形式的其他變體：`test.fixme(名稱, …)`、`test.fail(名稱, …)`、`test.todo(…)`、`it.skip`、`it.todo`、`describe.skip`、`describe.todo`、`suite.skip`、`test.describe.skip`、`test.describe.fixme`、`test.step.skip`，以及任何 `.only`。
    - 測試本體或 `describe` 本體中的執行期呼叫：`test.skip()`、`test.skip(條件)`、`test.skip(條件, 說明)`、`test.fixme(…)`、`test.fail(…)`；node:test 的 `t.skip()`、`t.todo()`；Playwright 的 `testInfo.skip()`、`testInfo.fixme()`、`testInfo.fail()`。
    - 選項物件：`{ skip: … }`、`{ todo: … }`、`{ annotation: { type: 'skip'|'fixme'|'fail' } }`（含陣列形式）、`{ expectFailure: … }`。
    - 偵測規則（不逐一列舉也要涵蓋）：在 `tests/acceptance/` 的程式碼中（不含註解與字串資料），名稱為 `skip`、`fixme`、`fail`、`todo`、`only`、`expectFailure` 的**屬性存取**（`.skip`）、**計算屬性**（`['skip']`）與**物件鍵**（`skip:`），以及值為 `'skip'`、`'fixme'`、`'fail'` 的 `type` 鍵，除了上述骨架宣告之外都判定失敗。唯一例外是 `assert.fail(…)`（node:assert 的斷言，會讓測試失敗而不是改變預期結果）：接收者為 `assert` 的 `.fail` 不受限。
    - 註：`test.describe.serial.skip` 在本專案使用的 Playwright 1.63 不存在（本次實測：載入時 `TypeError: test.describe.serial.skip is not a function`，該檔全部測試不執行），但依上一點的屬性規則同樣被判定失敗；即使未被判定，12.2.1 也會因該檔沒有任何執行結果而失敗。
 9. **靜態偵測的界限：** 別名（`const s = test.skip; s(…)`）、動態組字（`test['sk' + 'ip']`）、由輔助模組間接呼叫等寫法，靜態掃描無法保證涵蓋。因此第 8 點只是快速、可指出行號的第一道檢查，**是否略過、是否預期失敗、是否實際執行，一律以 12.2.1 的執行結果為準**。
+9a. **非骨架測試至少有一個斷言呼叫（第 3 輪審查 M-1）：** `tests/acceptance/` 中骨架以外的每個 `test(…)`，其本體（不含註解與字串資料）至少有一個呼叫，其被呼叫者的第一個識別字以 `expect` 或 `assert` 開頭（例：`expect(…)`、`expect.soft(…)`、`expect.poll(…)`、`assert.equal(…)`，或 `tests/support/` 中以 `expect`／`assert` 開頭命名的斷言輔助函式），否則判定失敗並列出檔名、行號與名稱。這讓「刪掉 `.skip` 留下空本體」的骨架直接失敗；它擋不住 `expect(true).toBe(true)` 這類刻意的空斷言，也擋不住斷言寫在永遠不會執行的分支中，這兩者由 12.2.1 第 6 項與審查清單 R-15 處理。
+9b. **同一檔案的測試名稱不得重複（第 3 輪審查 P-2）：** `tests/acceptance/` 同一檔案中，「外層 `describe` 名稱路徑＋測試名稱」相同的測試超過一個時判定失敗。理由：12.2.1 以檔案與名稱把執行結果對應到靜態掃描（骨架的豁免、未執行的判定），名稱重複時，非骨架測試可以借用骨架的名稱得到豁免。Playwright 本身已禁止同名，node:test 沒有禁止。
+9c. **node:test 驗收測試的斷言來源（第 3 輪審查 M-1）：** `tests/acceptance/unit/` 的測試檔必須自 `tests/support/assertions.mjs` 匯入 `assert`，且不得匯入 `node:assert`、`node:assert/strict`、`assert`、`assert/strict`；否則判定失敗。理由見 12.2.1 第 6 項（node:test 沒有內建的斷言計數）。Playwright 驗收測試不受此限，以 `@playwright/test` 的 `expect` 斷言（其他斷言方式不會被計數，12.2.1 第 6 項會判定為沒有斷言）。
 10. 另外列出名稱含必要編號、以骨架宣告略過的測試數。參數 `--no-skip` 時：`tests/acceptance/` 有任何骨架即失敗；`tests/unit/` 中以 v0.4 的略過清單（`.skip`、`.fixme`、`.todo` 變體、`{ skip }`、`{ todo }`、略過區塊內的測試）判定的略過也仍然失敗（維持 PR-1 實作的嚴格程度，不因掃描範圍調整而放寬）。M3 離開條件（agent-dev-workflow 4.3「沒有略過的測試」）由 PR-7 對本檢查與 12.2.1 同時打開 `--no-skip`。
-11. 解析結果的編號數量印在輸出中；`tests/acceptance/unit/` 中的 AC-EQ-4 測試以固定的需求文件片段驗證解析，並以測試資料確認下列情況會失敗（AC-EQ-4 反例）：刪除含 AC-GP-5 的測試；AC-GP-5 只出現在 `tests/unit/` 的測試名稱中；AC-GP-5 的測試位於不會被執行的位置（第 4 點）。
+11. 解析結果的編號數量印在輸出中；`tests/acceptance/unit/` 中的 AC-EQ-4 測試以固定的需求文件片段驗證解析，並以測試資料確認下列情況會失敗（AC-EQ-4 反例）：刪除含 AC-GP-5 的測試；AC-GP-5 只出現在 `tests/unit/` 的測試名稱中；AC-GP-5 的測試位於不會被執行的位置（第 4 點）；AC-GP-5 的測試為「刪掉 `.skip` 的空本體」（第 9a 點）。
 12. 同一編號涵蓋多個範圍時（NFR-5、NFR-7），每個範圍各自命名（acceptance-test-plan.md 第 2 節），未完成範圍保持略過（骨架宣告）；`--no-skip` 因而能發現遺漏的範圍。
 
 ### 12.2.1 驗收測試執行結果檢查（`check-acceptance-results.mjs`，v0.5 新增）
@@ -686,8 +690,8 @@ v0.5 修訂（PR-1 審查 N-2 與實作、測試 agent 回報）：掃描範圍�
 
 | 執行器 | 取得方式 | 實測到的行為 |
 |---|---|---|
-| node:test | 自訂 reporter `scripts/acceptance-reporter.mjs`（`--test-reporter` 可指定模組，與 `spec` reporter 並用、各自指定輸出）：對每個 `test:pass`／`test:fail` 事件輸出一行 JSON：`file`、`name`、外層 `describe` 名稱路徑、`skip`、`todo`、`details.type`（`test`／`suite`）、通過或失敗 | 本體內 `t.skip()`、`t.todo()`、`{ skip }`、`test.todo`、以別名呼叫的 `test.skip` 都回報 `skip` 或 `todo`；`describe(…, { skip: true })` 只回報**區塊本身**為略過，**區塊內的測試完全不出現在結果中**；內建 JUnit reporter 沒有檔名，不採用 |
-| Playwright | `json` reporter 輸出到檔案（與 `list` 並用）。每個測試的 `expectedStatus`、`status`、每次 `results[].status`、`annotations`，以及含 `describe` 的標題路徑與檔名 | 本體內 `test.skip()`、`test.skip(條件, 說明)`、`test.fixme()`、`testInfo.skip()`、`{ annotation: { type: 'skip' } }`、別名呼叫、略過區塊內的測試都回報 `expectedStatus: skipped`；`test.fail()` 與 `test.fail(名稱, …)` 回報 `expectedStatus: failed`、`status: expected`，在 `stats` 中被算在 **expected**（不是 skipped），所以**不能只看 `stats.skipped`** |
+| node:test | 自訂 reporter `scripts/acceptance-reporter.mjs`（`--test-reporter` 可指定模組，與 `spec` reporter 並用、各自指定輸出）：對每個 `test:pass`／`test:fail` 事件輸出一行 JSON：`file`、`line`、`column`、`name`、外層 `describe` 名稱路徑、`skip`、`todo`、`details.type`（`test`／`suite`）、通過或失敗；並把同一 `file`＋`line`＋`column` 的 `test:diagnostic` 訊息 `acceptance-assertions <執行次數> <失敗次數>` 併入該筆（第 6 項） | 本體內 `t.skip()`、`t.todo()`、`{ skip }`、`test.todo`、以別名呼叫的 `test.skip` 都回報 `skip` 或 `todo`；`describe(…, { skip: true })` 只回報**區塊本身**為略過，**區塊內的測試完全不出現在結果中**；內建 JUnit reporter 沒有檔名，不採用。第 3 輪實測：在 `tests/support/` 模組最上層以 `beforeEach`／`afterEach` 註冊的 hook 會套用到匯入它的測試檔的每個測試，`afterEach` 中 `t.diagnostic(…)` 的事件帶有該測試的 `file`、`line`、`column`，可與 `test:pass` 對應；略過的測試不執行 hook。以包裝 `test` 的方式計數則**不可行**：事件的 `file`、`line` 會變成包裝模組的位置 |
+| Playwright | 自訂 reporter `scripts/acceptance-reporter-pw.mjs`（與 `list` 並用；第 3 輪起取代 v0.5 初稿的 `json` reporter，因為 `json` 輸出不含斷言步驟）。`onTestEnd` 輸出每個測試的 project、檔名、含 `describe` 的標題路徑、`expectedStatus`、`status`、每次結果的 `status`、`annotations`；`onStepEnd` 計數 `category === 'expect'` 的步驟與其中帶 `error` 者（含巢狀於 `test.step` 內的），併入該測試 | 本體內 `test.skip()`、`test.skip(條件, 說明)`、`test.fixme()`、`testInfo.skip()`、`{ annotation: { type: 'skip' } }`、別名呼叫、略過區塊內的測試都回報 `expectedStatus: skipped`；`test.fail()` 與 `test.fail(名稱, …)` 回報 `expectedStatus: failed`、`status: expected`，在 `stats` 中被算在 **expected**（不是 skipped），所以**不能只看 `stats.skipped`**。第 3 輪實測：`json` reporter 的 `steps` 只含 `test.step`，不含 `expect`；自訂 reporter 的 `onStepEnd` 可取得 `category: 'expect'`：空本體 0 次、提前 `return` 0 次、`expect.soft` 1 次、`expect.poll` 2 次、被 `try/catch` 吞掉的失敗斷言 1 次且帶 `error`、測試狀態仍為 `passed` |
 
 **判定（純函式 `evaluateResults({ layer, staticTests, results, noSkip })`）：** 輸入為同一 job 的結果檔與同一份原始碼的 12.2 靜態掃描結果（只取該層目錄：`unit` 層為 `tests/acceptance/unit/`，`e2e` 層為 `tests/acceptance/e2e/`）。下列任一項成立即失敗，並列出檔名與名稱：
 
@@ -696,22 +700,31 @@ v0.5 修訂（PR-1 審查 N-2 與實作、測試 agent 回報）：掃描範圍�
 3. **骨架略過（只在 `--no-skip`）：** 任何略過。
 4. **沒有執行：** 靜態掃描到的每個測試（`describe` 以外），在同一檔案的結果中至少有一筆名稱相符的結果（名稱為不含 `${` 的字面值時須完全相同；樣板字面值以第一個 `${` 之前的固定文字為前綴比對）。靜態掃描到的 `describe` 名稱，須出現在至少一筆結果的外層名稱路徑中。該層目錄的每個測試檔至少有一筆結果。
 5. **編號沒有通過的執行結果（只在 `--no-skip`）：** 該層靜態掃描到的每個必要編號，至少有一筆依第 1 點判定為通過的結果，其「外層名稱路徑＋名稱」含該編號（完整編號比對）。
+6. **沒有執行任何斷言，或有斷言失敗卻被吞掉（第 3 輪審查 M-1）：** 每筆非略過且通過的結果，斷言執行次數至少 1、失敗次數為 0；缺少計數資料（例：node:test 驗收測試沒有經 `tests/support/assertions.mjs` 斷言，沒有 `acceptance-assertions` 訊息）也判定失敗。不論是否 `--no-skip`。計數來源：Playwright 為 reporter 的 `expect` 步驟；node:test 為 `tests/support/assertions.mjs`：匯出包裝 `node:assert/strict` 的 `assert`（每次呼叫斷言方法計為執行一次，丟出例外時計為失敗一次再重新丟出），並在模組最上層註冊 `beforeEach` 歸零、`afterEach` 以 `t.diagnostic('acceptance-assertions <執行> <失敗>')` 回報。這能機械地抓到：空本體、在第一個斷言之前提前 `return`（含依引擎或環境的條件 `return`，在該引擎的 job 中為 0 次）、以 `try/catch` 吞掉失敗的斷言。
 
 **執行位置：** `unit` job 判定 `unit` 層；每個 `e2e (<引擎>)` job 以一般與 `-realtime` 兩次執行的結果檔合併判定 `e2e` 層（`timing-real.spec.mjs` 只出現在 realtime 的結果中）。所以每個引擎都要各自通過，與 NFR-1 一致；某引擎以條件略過（例如 `test.skip(browserName === 'webkit')`）會讓該引擎的 job 失敗。
 
-**啟用時點：** PR-1b 加入並啟用第 1、2、4 項（骨架以外的略過、預期失敗、沒有執行，自 PR-1b 起任何時候都不允許）；第 3、5 項由 PR-7 以 `--no-skip` 打開。
+**啟用時點：** PR-1b 加入並啟用第 1、2、4、6 項（骨架以外的略過、預期失敗、沒有執行、沒有斷言或吞掉斷言，自 PR-1b 起任何時候都不允許；PR-1b 時已轉實測的 10 個驗收測試須符合第 6 項）；第 3、5 項由 PR-7 以 `--no-skip` 打開。
 
 **判定以執行結果為準的理由：** 靜態偵測無法證明涵蓋所有寫法（12.2 第 9 點），而且看不到「寫了但沒有被執行」的測試（檔案位置不符、略過區塊、`.only`、執行器的名稱過濾參數）。執行結果直接反映執行器實際做了什麼，與寫法無關。靜態檢查保留，因為它能在執行前指出行號，並負責 EQ-4 的編號覆蓋。
+
+**殘餘風險：只能靠審查把關的部分（第 3 輪審查 M-1、P-4）。** 執行結果與斷言計數只能證明「測試有執行、至少執行一個斷言、沒有斷言失敗被吞掉、執行器回報通過」，不能證明「測試驗證了驗收標準」。下列情況機械檢查抓不到，由審查清單 R-15（review-process.md 第 3 節）與測試 agent 的變異檢查（acceptance-testing skill 4.3）把關：
+- 斷言內容空洞（`expect(true).toBe(true)`、比對與產品無關的值、以測試自己算出的值比對自己）。
+- 只驗證了 Then 的一部分觀察點；或先執行一個斷言後，依引擎、環境或條件提前 `return` 跳過其餘 Then（斷言次數已大於 0）。
+- Given／When 沒有照驗收標準建立（例如以注入取代驗收要求的操作），或檢查點不在容差邊界上。
+- 驗收測試在執行中改寫 `scripts/`、結果檔或 reporter 的輸出（測試與檢查在同一 job，測試程式碼有檔案系統權限；與「PR 可修改自己的檢查」同類，R-14 檢查）。
+
+不採用自動化變異測試工具的理由：端對端層在三引擎各執行一次已是 CI 的主要時間，對每個變異重跑會使 CI 時間成倍增加；而且需要引入新的開發相依並另行查證授權（Q4 只查證了目前的工具）。改以測試 agent 對每個轉實測的測試做變異檢查並寫入 commit 訊息、審查者重做至少一個（R-15）。
 
 ### 12.3 端對端測試設定（playwright.config.mjs）
 
 - `testDir: tests/acceptance/e2e`。
 - `projects`：
-  - `chromium`、`firefox`、`webkit`：`testIgnore: /timing-real\.spec\.mjs/`。
+  - `chromium`、`firefox`、`webkit`：`testMatch: /\.spec\.mjs$/`（第 3 輪審查 P-3：與 12.2 第 4 點一致）、`testIgnore: /timing-real\.spec\.mjs/`。
   - `chromium-realtime`、`firefox-realtime`、`webkit-realtime`：`testMatch: /timing-real\.spec\.mjs/`，CI 以 `--workers=1` 在一般測試**之後**單獨執行，避免與其他測試平行時 CPU 負載延後計時器（NFR-6）。
 - `webServer`：`node scripts/serve.mjs dist`；測試前必須先 `node scripts/build.mjs`。
 - `retries: 0`（重試會掩蓋計時問題）。
-- `reporter`：`list`（給人看）加上 `json`（輸出到檔案，供 12.2.1）；一般與 realtime 兩次執行輸出到不同檔名。`forbidOnly` 在 CI 為 true（PR-1 已實作，維持）。
+- `reporter`：`list`（給人看）加上自訂 reporter `scripts/acceptance-reporter-pw.mjs`（輸出到檔案，供 12.2.1；含斷言步驟計數）；一般與 realtime 兩次執行輸出到不同檔名。`forbidOnly` 在 CI 為 true（PR-1 已實作，維持）。
 - NFR-6 測試以 `test.setTimeout(120_000)` 覆寫預設逾時（89 秒量測超過預設 30 秒）。
 - 實作 agent 不撰寫端對端測試；畫面層的行為由測試 agent 的驗收測試涵蓋（module-test-standards.md M10）。
 
@@ -723,7 +736,7 @@ v0.5 修訂（PR-1 審查 N-2 與實作、測試 agent 回報）：掃描範圍�
 2. 含「## 已載入的 skill」段落與表格，至少一列為 `agent-dev-workflow`。
 3. 表格中每一列的 skill 名稱對應 `.claude/skills/<名稱>/SKILL.md`（簽出 PR 的 commit 讀取），且填寫的版本號等於該檔案「變更紀錄」表格最後一列的版本號。該 skill 沒有變更紀錄時，版本號欄必須填「無版本號」，檢查記為警告而不失敗（DQ-6 的過渡規則）。
    - **過渡規則已結束（DQ-6；v0.5 更新，PR-1 審查 N-3）：** 原設計預定由「另一個同步 PR」更新版本庫內的 skill 副本；實際上副本同步已**隨 PR-1 合併**（commit 40725e0，PR-1 審查紀錄確認副本與產品負責人安裝的原始 skill 逐位元組相同）。因此自 PR-1 合併（7707e9f）起，版本庫內的 agent-dev-workflow 與 requirements-spec 都有變更紀錄（皆為 1.1），PR 說明一律填版本號；填「無版本號」即失敗（本規則以版本庫內檔案判定，不需修改程式）。「無版本號」的警告分支只在 skill 確實沒有變更紀錄時適用。
-4. 含「## 作者」段落，至少一行符合 `工作階段：<非空白>`。多位作者時重複「- 角色：…」「- 工作階段：…」兩行一組（review-process.md 第 2 節），全部工作階段識別都會被 review-gate 採計。
+4. 含「## 作者」段落，至少一行符合 `工作階段：<非空白>`。多位作者時重複「- 角色：…」「- 工作階段：…」兩行一組（review-process.md 第 2 節），全部工作階段識別都會被 review-gate 採計。第 3 輪審查 M-2 起：每個工作階段識別經去除前後空白、NFKC 正規化、轉小寫後必須符合 `^[a-z0-9-]+$`，且原文不得含零寬或其他不可見格式字元（Unicode 類別 Cf），否則失敗；規則與 review-process.md 第 4 節第 2 步相同，讓格式錯誤在 `pr-body` 就被發現。
 
 PR-1 已更新 `.github/pull_request_template.md`：作者段落示範兩組（實作、測試）；因 skill 副本已隨 PR-1 同步，範本的版本號欄已留空，由作者依載入的 skill 填寫（DQ-6；v0.5 更新描述，PR-1 審查 N-3）。PR 包含多個角色的產出（例如設計文件與程式碼）時，「## 作者」列出每個角色的工作階段（PR-1 審查 N-4(a)）。
 
@@ -767,7 +780,11 @@ jobs:
 - 兩項例外由產品負責人在 UAT 紀錄或 release notes 註明（建議文字：「EQ-2 啟動例外：初始 commit f409a7a 直接推送；PR-1 於分支保護生效前合併，審查紀錄經產品負責人人工確認。其後所有變更皆經 PR、CI 與審查檢查。」）。
 - `review-record` 的必要檢查分兩段設定（步驟 6a、6b），不屬例外。**v0.5 起 6b 改在 PR-1b 執行**（原為 PR-2）：PR-1 合併後的第一個 PR 就是 PR-1b，agent-dev-workflow 4.3「啟動例外以外，不得再有不經檢查的合併」要求 `review-record` 在 PR-1 之後第一個 PR 合併前就成為必要檢查，不能等到 PR-2。
 - **PR-1b 會觸發 review-gate（v0.5 已確認）：** 以 API 讀取，main（7707e9f）含 `.github/workflows/review-gate.yml`，工作流程狀態為 active；目前沒有任何執行紀錄（PR-1 的審查評論留在合併前，當時工作流程尚未在預設分支）。因此 PR-1b 開啟（`pull_request_target` opened）時，review-gate 會以 main 上的版本**第一次**執行並寫入 `review-record` 狀態。第一次執行若無法寫入狀態，見 DQ-11。
-- **PR-1b 由舊版判定（已知限制）：** `pull_request_target`／`issue_comment` 執行的是 main 上的 `review-gate.mjs`，所以 PR-1b 對 review-gate 的修正（review-process.md 第 4 節 v0.5：重複的 R 列、工作階段大小寫）要在 PR-1b 合併後才生效，PR-1b 本身由 PR-1 的版本判定。PR-1 版本的漏洞只在紀錄自相矛盾（同一 R 列重複且結果不同）或工作階段只差大小寫時才會出現；PR-1b 合併前，產品負責人在步驟 8 人工確認 PR-1b 的最後一則審查紀錄沒有重複的 R 列、審查者工作階段與每位作者的工作階段在忽略大小寫後都不同。這是以既有檢查加人工確認處理，不是不經檢查的合併。
+- **PR-1b 由舊版判定（已知限制）：** `pull_request_target`／`issue_comment` 執行的是 main 上的 `review-gate.mjs`，所以 PR-1b 對 review-gate 的修正（review-process.md 第 4 節 v0.5）要在 PR-1b 合併後才生效，PR-1b 本身由 PR-1 的版本判定。PR-1b 合併前以兩道確認補足新舊版本的差異（第 3 輪審查 M-3）：
+  1. **以新版試算（機械）：** 在 PR-1b 分支上執行 `node scripts/review-gate.mjs --dry-run`（實作 agent 在 PR-1b 加入：以 API 讀取 PR-1b 的說明、評論與 head SHA，呼叫新版 `evaluate`，只印出判定與原因，不寫入任何狀態；權杖只需讀取權限）。結果必須為 `success`，輸出（含 head SHA）貼在 PR-1b 對話區。這也是新版判定第一次以真實資料執行。
+  2. **人工確認清單（產品負責人，逐項勾選並貼在 PR-1b 對話區）：** 針對 PR-1b 最後一則審查紀錄：(i) 第一行為標記、只有一個逐項結果表、表中每一列第一格恰為 `R-<數字>`（半形、無粗體或其他文字），R-1～R-15 各恰好一列；(ii) 每列結果恰為「通過」「不通過」「不適用」之一，沒有「不通過」，「不適用」的說明欄都有理由；(iii) 「結果」「針對 commit」「審查者」三行各恰好出現一次，結果為 `APPROVED`，commit 為最新 head 的完整 40 碼；(iv) 審查者與每位作者的工作階段識別只含半形小寫英數字與連字號，且彼此不同（不只是大小寫或全半形不同）；(v) 紀錄含「同一模型」與「不同工作階段」；(vi) 第 1 道的試算結果為 `success`，且試算的 head SHA 等於合併時的 head。
+  這是以既有檢查加上新版試算與人工確認處理，不是不經檢查的合併。
+- **新版 review-gate 在平台上的第一次執行（第 3 輪審查 M-3）：** PR-1b 合併後，main 上換成新版；它第一次在平台上執行是 PR-1b 之後的第一個 PR。步驟 8b 在該 PR 重新觀察 AC-EQ-11 的三步，作為描述主分支上版本的驗收證據；新版若無法寫入狀態，依 DQ-11 處理。之後任何修改 `review-gate.mjs` 或 `review-gate.yml` 的 PR 合併後，同樣在下一個 PR 重做步驟 8b 並記錄（AC-EQ-11 的證據須描述主分支目前的版本；agent-dev-workflow 4.4）。
 - **已記錄的設定（v0.5）：** 步驟 6a 已由產品負責人完成（統籌 agent 2026-11-09 回報；設計 agent 以 `GET /repos/{owner}/{repo}/branches/main/protection` 讀取確認：必要檢查為 `unit`、`acceptance-ids`、`e2e (chromium)`、`e2e (firefox)`、`e2e (webkit)`、`pr-body`，來源 app_id 15368（GitHub Actions），`strict: true`，`enforce_admins: true`，不允許強制推送與刪除）。AC-EQ-2 的「本機對主分支直接 push 被拒」已由產品負責人驗證（統籌 agent 回報）；「CI 失敗的 PR 以管理員身分合併被拒」在 PR-1b 驗證（步驟 8，DQ-12）。
 
 | 步驟 | 時點 | 設定 | 執行者 |
@@ -779,20 +796,21 @@ jobs:
 | 4 | PR-1 的 CI 全部通過、審查紀錄由產品負責人人工確認後 | 合併 PR-1。此時分支保護與審查檢查尚未生效（EQ-2 啟動例外之二，DQ-8 已接受） | 手動 |
 | 5 | PR-1 合併後 | Settings → Environments → github-pages → Deployment branches：只允許 `main` | 手動 |
 | 6a | PR-1 合併後、下一個 PR 開啟前（**已完成**，見上方「已記錄的設定」） | Settings → Branches → Add classic branch protection rule，Branch name pattern `main`：<br>☑ Require a pull request before merging（不勾 Require approvals：單一帳號無法核准自己的 PR）<br>☑ Require status checks to pass before merging；☑ Require branches to be up to date before merging；必要檢查：`unit`、`acceptance-ids`、`e2e (chromium)`、`e2e (firefox)`、`e2e (webkit)`、`pr-body`（這些在 PR-1 已執行過，選得到）<br>☑ **Do not allow bypassing the above settings**（套用於管理員，EQ-2）<br>☐ Allow force pushes；☐ Allow deletions | 手動 |
-| 6b | **PR-1b** 開啟、`review-record` 狀態寫入過一次後，**PR-1b 合併前**（v0.5：原為 PR-2） | 在同一條規則加入必要檢查 `review-record`（來源選 GitHub Actions）。**6b 完成前，審查 agent 不留 PR-1b 的審查紀錄**，以便步驟 8 能在 PR-1b 看到 AC-EQ-11 第一步「沒有審查紀錄 → 無法合併」。`review-record` 在 PR-1 期間不會執行（工作流程尚未在預設分支），所以 6a 時選不到。PR-1b 開啟後若 `review-record` 一直沒有出現，停止並依 DQ-11 處理，**不得在沒有 `review-record` 必要檢查的情況下合併 PR-1b** | 手動 |
+| 6b | **驗證 PR**（DQ-11 採 (d) 時為探測 PR A，否則為 PR-1b）開啟、`review-record` 狀態寫入過一次後，**PR-1b 合併前**（v0.5：原為 PR-2） | 在同一條規則加入必要檢查 `review-record`（來源選 GitHub Actions）。**6b 完成前，審查 agent 不在驗證 PR 留審查紀錄**，以便步驟 8 能看到 AC-EQ-11 第一步「沒有審查紀錄 → 無法合併」。`review-record` 在 PR-1 期間不會執行（工作流程尚未在預設分支），所以 6a 時選不到。驗證 PR 開啟後若 `review-record` 一直沒有出現，停止並依 DQ-11 處理，**不得在沒有 `review-record` 必要檢查的情況下合併 PR-1b** | 手動 |
 | 7 | 6a 後 | Settings → General → Pull Requests：只允許 Squash merging（選用，讓主分支每個 commit 對應一個 PR） | 手動 |
-| 8 | 6b 後、PR-1b 合併前（v0.5：原為 PR-2） | 在 PR-1b 依序執行並記錄每一步的時間、head SHA 與 `review-record` 狀態（連結）：<br>(1) **AC-EQ-11 第一步、AC-EQ-2：** PR-1b 其他檢查全部通過、沒有審查紀錄時，`review-record` 為 failure；以產品負責人（管理員）身分嘗試合併，確認被拒（DQ-12）。<br>(2) **AC-EQ-11 第二步：** 審查 agent 針對最新 head 留下審查紀錄，`review-record` 變為 success。<br>(3) **AC-EQ-11 第三步：** 實作 agent 推送一個新 commit（建議為空 commit：`git commit --allow-empty -m "chore: AC-EQ-11 驗證（spec.md 12.6 步驟 8）"`，不改變內容；Squash 合併後不留痕跡），確認 `review-record` 對新 head 為 failure、無法合併。<br>(4) 審查 agent 針對新 head 重新審查並留下紀錄，`review-record` 為 success；產品負責人依上方「PR-1b 由舊版判定」人工確認紀錄後合併。<br>結果記入 PR-1b 的對話區，AC-EQ-11、AC-EQ-2 的人工驗收紀錄引用該處 | 手動 |
+| 8 | 6b 後、PR-1b 合併前（v0.5：原為 PR-2） | 在驗證 PR 依序執行並記錄每一步的時間、head SHA 與 `review-record` 狀態（連結）：<br>(1) **AC-EQ-11 第一步、AC-EQ-2：** 驗證 PR 其他檢查全部通過、沒有審查紀錄時，`review-record` 為 failure；以產品負責人（管理員）身分嘗試合併，確認被拒（DQ-12）。<br>(2) **AC-EQ-11 第二步：** 審查 agent 針對最新 head 留下審查紀錄，`review-record` 變為 success。<br>(3) **AC-EQ-11 第三步：** 實作 agent 推送一個新 commit（建議為空 commit：`git commit --allow-empty -m "chore: AC-EQ-11 驗證（spec.md 12.6 步驟 8）"`，不改變內容；Squash 合併後不留痕跡），確認 `review-record` 對新 head 為 failure、無法合併。<br>(4) 驗證 PR 為 PR-1b 時：審查 agent 針對新 head 重新審查並留下紀錄，`review-record` 為 success；依上方「PR-1b 由舊版判定」完成新版試算與人工確認清單後，產品負責人合併。驗證 PR 為探測 PR A 時：驗證後關閉、不合併、刪除分支；PR-1b 開啟時已受 `review-record` 把關，依一般流程審查，合併前同樣完成新版試算與人工確認清單。<br>結果記入驗證 PR 的對話區，AC-EQ-11、AC-EQ-2 的人工驗收紀錄引用該處（舊版的證據） | 手動 |
+| 8b | PR-1b 合併後的第一個 PR（DQ-11 採 (d) 時為探測 PR B，否則為 PR-2）；之後每次 review-gate 變更合併後的下一個 PR | 以 main 上的新版重新觀察 AC-EQ-11 三步：開啟時（無紀錄）failure → 留紀錄後 success → 推送新 commit 後 failure；記錄時間、head SHA、狀態連結。PR-2 的一般流程自然包含這三步（推送新 commit 可以是審查後的修正 commit；沒有修正時以空 commit 代替）。AC-EQ-11 的人工驗收紀錄以這份為主、步驟 8 的為補充。新版無法寫入狀態時依 DQ-11 | 手動（觀察與記錄） |
 | 9 | M4 UAT 開始時 | 在分支保護規則勾選 **Lock branch**（主分支唯讀），UAT 結束且發布後取消（EQ-14、M4 凍結主分支） | 手動 |
 
 ---
 
 ## 13. 審查紀錄與審查檢查（EQ-5、EQ-11）
 
-審查紀錄格式、審查清單（R-1～R-14）與 `review-gate.mjs` 的判定規則見 **review-process.md**。摘要：
+審查紀錄格式、審查清單（R-1～R-15）與 `review-gate.mjs` 的判定規則見 **review-process.md**。摘要：
 
 - 審查 agent 在 PR 的對話區留一則評論，第一行為 `<!-- review-record v1 -->`，含結果（`APPROVED`／`CHANGES_REQUESTED`）、針對的完整 40 碼 commit SHA、審查者與作者的工作階段識別、「同一模型不同工作階段」註明、逐項結果表。
 - `review-gate.mjs` 對 PR 最新 head SHA 寫入 `review-record` 狀態；只採計協作者的評論、SHA 必須等於最新 head、審查者工作階段不得等於 PR 說明中任何作者的工作階段（v0.5：去除前後空白、NFKC 正規化並轉小寫後比對）、以針對該 SHA 的最後一則紀錄為準。
-- v0.5（PR-1 審查 N-1）：逐項結果表中同一 R 編號出現兩次以上時，整則紀錄無效（failure「審查清單重複」），不以任何一列為準；結果欄只接受「通過」「不通過」「不適用」三個值；表中任一列（含清單以外的列）為「不通過」即 failure。
+- v0.5（PR-1 審查 N-1；第 3 輪審查 M-2 改為白名單式）：紀錄的格式只要有任何一處不符合 review-process.md 第 2 節的白名單，整則紀錄無效；包括：含零寬或其他不可見格式字元；「結果」「針對 commit」「審查者」任一欄位不是恰好一行；任何表格列不是規定格式的 R 列（例：`**R-5**`、`Ｒ－５`、`R-5（補充）`）；同一 R 編號兩列以上；結果欄不是三個值之一；工作階段識別正規化後不符合 `^[a-z0-9-]+$`。審查清單擴為 R-1～R-15（新增 R-15「驗收測試確實驗證」，第 3 輪審查 M-1）。
 - 審查清單 R-14：PR 若修改 CI、檢查腳本、`supplementary-acceptance.json` 或需求文件，審查者確認沒有降低任何檢查。
 
 ---
@@ -808,7 +826,7 @@ jobs:
 | PR | 內容 | 需求編號 | 驗收（骨架轉實測） | Given／When 所需畫面與操作 |
 |---|---|---|---|---|
 | PR-1 基礎 | 以 branch `design/initial` 為基礎（包含其中設計文件與設計 skill 的 commit；設計文件不另外單獨合併，見 DQ-8）；目錄結構、package.json、playwright.config、scripts 全部（build、serve、check-acceptance-ids、check-pr-body、review-gate）、四個工作流程、最小可載入的 `index.html`（只顯示 `version` 元素）、PR 範本更新（12.4）、全部驗收骨架（含設計補充驗收 AC-PS-5、AC-PS-8、AC-RS-4、AC-RS-5、AC-RC-9、NFR-4 的骨架；DQ-10 決定全部啟用，`supplementary-acceptance.json` 的 `enforced: true` 隨本 PR 生效，與骨架同一 PR）、設計文件與設計 skill（docs/design/、.claude/skills/software-design-phase/）、.gitignore | EQ-1、EQ-2（設定步驟）、EQ-3、EQ-4、EQ-5、EQ-9、EQ-11、EQ-12、NFR-1 | AC-EQ-4、AC-EQ-9、NFR-7 首頁 | 首頁與版本號元素（PR-1 提供）。補充驗收骨架為略過，不需畫面 |
-| PR-1b 合併前修正（v0.5 新增） | 本設計 v0.5 文件（docs/design/、.claude/skills/software-design-phase/ 1.4；隨本 PR 合併，不單獨合併）。實作 agent：`check-acceptance-ids.mjs` 依 12.2 v0.5（掃描範圍、檔案位置、單元測試不得帶編號、略過寫法）；新增 `check-acceptance-results.mjs` 與 `acceptance-reporter.mjs`（12.2.1，啟用第 1、2、4 項）；ci.yml 的 `unit` 分兩次執行並檢查結果、`e2e` 以 job 層級 `BUILD_SHA` 並檢查結果（12.1、第 11 節）；playwright.config 加 `json` reporter（12.3）；`review-gate.mjs` 依 review-process.md 第 4 節 v0.5（重複 R 列、結果值、工作階段比對）；對應的模組單元測試（module-test-standards.md M12）。測試 agent：AC-EQ-4 測試補 12.2 第 11 點的反例與略過寫法的判定；AC-EQ-9 第二個測試在 CI 中必須取得 `BUILD_SHA`（acceptance-test-plan.md #51）。不改任何產品程式（`src/`） | EQ-2、EQ-4、EQ-5、EQ-9、EQ-11；M3 離開條件 | AC-EQ-4、AC-EQ-9（加強，維持通過）；NFR-7 首頁（維持）；AC-EQ-11、AC-EQ-2（人工，12.6 步驟 8） | 只涉及 CI、檢查腳本與 PR-1 的首頁；不需新畫面。AC-EQ-11 的 Given（其他檢查都通過、沒有審查紀錄的 PR）由 PR-1b 本身提供，前提是 review-gate 在 main 上（已確認）與 6b 已完成 |
+| PR-1b 合併前修正（v0.5 新增） | 本設計 v0.5 文件（docs/design/、.claude/skills/software-design-phase/ 1.5；隨本 PR 合併，不單獨合併）。實作 agent：`check-acceptance-ids.mjs` 依 12.2 v0.5（掃描範圍、檔案位置、單元測試不得帶編號、略過寫法）；新增 `check-acceptance-results.mjs`、`acceptance-reporter.mjs`、`acceptance-reporter-pw.mjs`（12.2.1，啟用第 1、2、4、6 項）；`check-acceptance-ids.mjs` 加 12.2 第 9a～9c 點與第 4 點的副檔名範圍；ci.yml 的 `unit` 分兩次執行並檢查結果、`e2e` 以 job 層級 `BUILD_SHA` 並檢查結果（12.1、第 11 節）；playwright.config 加自訂 reporter、一般 project 的 `testMatch`（12.3）；`review-gate.mjs` 依 review-process.md 第 4 節 v0.5（白名單式判定、R-1～R-15、工作階段比對）並加 `--dry-run`（12.6）；`check-pr-body.mjs` 的作者工作階段格式（12.4）；對應的模組單元測試（module-test-standards.md M12）。測試 agent：`tests/support/assertions.mjs`（12.2.1 第 6 項）；已實測的 node:test 驗收測試改由它匯入 `assert`；AC-EQ-4 測試補 12.2 第 11 點的反例與略過寫法的判定；AC-EQ-9 第二個測試在 CI 中必須取得 `BUILD_SHA`（acceptance-test-plan.md #51）。不改任何產品程式（`src/`） | EQ-2、EQ-4、EQ-5、EQ-9、EQ-11；M3 離開條件 | AC-EQ-4、AC-EQ-9（加強，維持通過）；NFR-7 首頁（維持）；AC-EQ-11、AC-EQ-2（人工，12.6 步驟 8；新版的 AC-EQ-11 證據在下一個 PR，步驟 8b） | 只涉及 CI、檢查腳本與 PR-1 的首頁；不需新畫面。AC-EQ-11 的 Given（其他檢查都通過、沒有審查紀錄的 PR）由 PR-1b 本身提供，前提是 review-gate 在 main 上（已確認）與 6b 已完成 |
 | PR-2 遊戲邏輯 | core 中 `records.js` 以外的模組（config、random、deal、time、game）＋單元測試（含 4.3 的亂數呼叫契約）；`records.js` 歸 PR-5 | GP-1～8、TM-1～5、LV-1、LV-5、LV-6、HT-1～10、PS-1～3、PS-9 的邏輯 | AC-GP-2（統計）、AC-LV-5 | 無畫面（U 層） |
 | PR-3 牌面 | faces.js、config 的 faceIds | LV-2～LV-4 | AC-LV-2、AC-LV-3、AC-LV-4 | 無畫面（U 層） |
 | PR-4 遊戲、選單與結果畫面 | game-view；menu-view 的難度按鈕與進入關卡（不含紀錄、清除）＋選單頁尾的版本號（`version` 元素，維持 PR-1 已實測的 AC-EQ-9 與「NFR-7 首頁」）；result-view（勝利／失敗、難度名稱、時間、步數、提示次數、重玩本關、回到選單；不含新紀錄與挑戰下一個難度）；遊戲中回到選單；app 路由；clock；版面與 iOS 對策；測試 agent 的端對端牌面配置輔助函式（第 8 節，DQ-7；依賴 PR-2 的 `random.js`、`deal.js`，因此不早於本 PR） | GP-1～8、TM-1～4、LV-1、LV-6～LV-9、HT-1～10、PS-1～4、PS-7（不含紀錄部分）、PS-9、PS-10、RS-1～3、NFR-3、NFR-5、NFR-6、NFR-7、EQ-9（保留） | AC-GP-1～8（AC-GP-2 的 E 層）、AC-TM-1～4、AC-LV-1、AC-LV-6、AC-LV-7、AC-LV-8、AC-LV-9、AC-HT-1～5、AC-HT-7～10、AC-PS-1～4、AC-PS-9、AC-PS-10、AC-RS-1～3、NFR-3、NFR-4（側欄版面）、NFR-5 遊戲畫面、NFR-5 選單、NFR-5 結果畫面、NFR-6、NFR-7 選單、NFR-7 三關遊玩、NFR-7 結果畫面；AC-EQ-9、NFR-7 首頁（PR-1 已實測，本 PR 須維持通過） | 選單進入關卡、遊戲畫面、結果畫面、重玩本關、回到選單（皆在本 PR）；AC-LV-7「沒有任何紀錄」在無紀錄功能時自然成立 |
@@ -816,7 +834,7 @@ jobs:
 | PR-6 Should 需求 | 全部本輪實作（DQ-10）：visibility.js 與背景自動暫停、回前景維持暫停（PS-5，DQ-2）；遊戲畫面「重新開始」，任何進行中狀態可用（PS-8，DQ-1）；勝利畫面「新紀錄」（RS-4 v1.1，DQ-3）與「挑戰下一個難度」（RS-5）；儲存不可用提示與記憶體紀錄（RC-9，DQ-5）；README 五節（EQ-10） | PS-5、PS-8、RS-4、RS-5、RC-9、EQ-10 | AC-PS-5、AC-PS-8、AC-RS-4、AC-RS-5、AC-RC-9；NFR-5 遊戲畫面（加入第 4 個按鈕）、NFR-5 結果畫面（加入挑戰下一個難度）、NFR-3、NFR-4 須維持通過 | 遊戲畫面、暫停（PR-4）；紀錄、選單紀錄顯示（PR-5）；重新開始按鈕、新紀錄標示、挑戰下一個難度、儲存不可用提示（本 PR）。AC-EQ-10 為人工，系統測試時執行 |
 | PR-7 M3 收尾 | CI 的 `acceptance-ids` 與每個 job 的 `check-acceptance-results` 都加上 `--no-skip`（12.2 第 10 點、12.2.1 第 3、5 項） | M3 離開條件 | 全部 | — |
 
-PR-1、PR-1b 的特別處理見 12.6 步驟 4、6b、8 與「EQ-2 啟動例外的處理」（DQ-8、DQ-11、DQ-12）。
+PR-1、PR-1b 的特別處理見 12.6 步驟 4、6b、8、8b 與「EQ-2 啟動例外的處理」（DQ-8、DQ-11、DQ-12）。
 
 ---
 
@@ -841,7 +859,7 @@ PR-1、PR-1b 的特別處理見 12.6 步驟 4、6b、8 與「EQ-2 啟動例外�
 
 ## 16. 待決問題（DQ-1～DQ-10 已關閉；DQ-11、DQ-12 待決定）
 
-**產品負責人於 2026-11-09 16:02 決定：DQ-1～DQ-10 全部採用下表「選項與建議」欄的建議。** DQ-11、DQ-12 為 v0.5 新增，須在 PR-1b 開啟前決定。 「決定與設計對應」欄列出決定寫入的章節；「阻擋」欄保留原本的阻擋範圍供追溯，已不再阻擋。DQ-3 需修改需求，統籌 agent 已把需求文件升為 v1.1（RS-4）。
+**產品負責人於 2026-11-09 16:02 決定：DQ-1～DQ-10 全部採用下表「選項與建議」欄的建議。** DQ-11、DQ-12 為 v0.5 新增，須在 PR-1b 開啟前決定。「決定與設計對應」欄列出決定寫入的章節；「阻擋」欄保留原本的阻擋範圍供追溯，已不再阻擋。DQ-3 需修改需求，統籌 agent 已把需求文件升為 v1.1（RS-4）。
 
 | 編號 | 問題 | 發現情境 | 選項與建議 | 阻擋 | 狀態與決定 |
 |---|---|---|---|---|---|
@@ -855,9 +873,9 @@ PR-1、PR-1b 的特別處理見 12.6 步驟 4、6b、8 與「EQ-2 啟動例外�
 | DQ-8 | EQ-2「主分支只能透過 PR 變更，套用於管理員」的啟動例外是否接受：(1) 初始 commit 已直接推送；(2) PR-1 在分支保護與審查檢查生效前合併（審查紀錄由產品負責人人工確認）；(3) 設計文件目前在 branch `design/initial`（commit `c41913a`、`49aa1eb`、`cadf291` 及之後的修訂）：設計規定以它為 PR-1 的基礎、不單獨合併；若產品負責人選擇先以獨立 PR 合併設計文件，該合併同樣不受審查檢查與分支保護約束，屬第三個例外。另 `review-record` 須在 PR-2 寫入過一次才能加為必要檢查（12.6 步驟 6b） | 設計啟動程序時發現（設計審查 M-7） | 建議接受 (1)、(2)，並讓設計文件隨 PR-1 合併以避免 (3)；在 UAT 紀錄或 release notes 註明。技術上沒有不經例外的啟動方式（開 PR 需要基底分支；`issue_comment` 工作流程只在預設分支生效） | **PR-1** | 已關閉（2026-11-09）：接受 (1)、(2)；設計文件隨 PR-1 合併，不發生 (3)；由產品負責人在 UAT 紀錄或 release notes 註明。對應 12.6「EQ-2 啟動例外的處理」、verification.md。v0.5 註記：6b 由 PR-2 改到 PR-1b（PR-1 之後第一個 PR），理由見 12.6；不新增例外 |
 | DQ-9 | EQ-12「10 分鐘內」與官方「最多可能需要 10 分鐘」相同，沒有餘裕。GitHub 端延遲造成 `smoke` 或 AC-EQ-12 失敗時如何處理？ | 查證 Q6 時發現 | 建議：`smoke` 失敗時重新執行該工作流程一次並記錄兩次的時間；若 AC-EQ-12 人工驗收時超過 10 分鐘，記為外部因素造成的觀察，連同 GitHub Status 當時狀態回報產品負責人，由產品負責人判定是否視為通過，不修改程式 | PR-1（`smoke` 的失敗處理） | 已關閉（2026-11-09）：採建議。對應 12.5「smoke 失敗與 EQ-12 逾時的處理」、verification.md 2.4 |
 | DQ-10 | Should 需求（PS-5、PS-8、RS-4、RS-5、RC-9、NFR-4、EQ-10）本輪是否實作，以及第 15 節的設計補充驗收是否採用 | 追溯矩陣把 PS-5、PS-8、RS-4、RS-5、RC-9、EQ-10 的驗收標為「設計階段補」；NFR-4 為 Should 的非功能需求（矩陣中驗收為「量測方法」） | 建議全部本輪實作，並在設計簽核時一併決定，讓 PR-1 依決定設定 `enforced` 並加入骨架 | **PR-1**（骨架與 `enforced`） | 已關閉（2026-11-09）：Should 需求全部本輪實作，補充驗收全部啟用（`enforced: true`，隨 PR-1 生效）。對應第 14、15 節、supplementary-acceptance.json、acceptance-test-plan.md 第 3 節 |
+| DQ-11 | **main 上的 review-gate 無法寫入 `review-record` 狀態時**（第 3 輪審查 M-3 擴大範圍：不限 PR-1b 第一次執行，也包括 PR-1b 合併後新版第一次執行、以及之後任何 review-gate 變更合併後），修正它的那一個 PR 由無法運作的版本判定，必然在沒有 `review-record` 把關下合併；`review-record` 已是必要檢查時，該 PR 甚至無法合併 | v0.5 依 agent-dev-workflow 4.3 把 6b 改到 PR-1b 時發現：review-gate 在 main 上從未執行過（12.6）；第 3 輪審查指出新版在 PR-1b 合併後才第一次在平台執行，形成同樣的情況 | (a) **接受為啟動例外，只限修正它的那一個 PR**：CI 其餘必要檢查仍須通過；若 `review-record` 已是必要檢查，產品負責人暫時移除它、合併修正 PR、立即加回；審查紀錄由產品負責人人工確認（同 DQ-8 (2)），並以修正後的版本做 12.6 的 `--dry-run` 試算；合併後下一個 PR 重做步驟 8b；在 UAT 紀錄或 release notes 註明。(b) **PR-1b 開啟前以 API 先加入必要檢查**：若平台接受未執行過的 context，PR-1b 從開啟起就受把關；但 review-gate 若不能運作，PR-1b 永遠無法合併，最後仍要退回 (a)；能否指定未執行過的 context 未查證（verification.md 2.5）。(c) 停止並重新設計（例如改為 `pull_request` 事件的檢查），成本高且失去「評論後自動更新」。(d) **先開不合併的探測 PR**：PR-1b 開啟前，開探測 PR A（branch `probe/review-gate-a`，只含一個空 commit，PR 說明含必要段落），觸發舊版第一次執行；寫入狀態後完成 6b 與步驟 8（AC-EQ-11、AC-EQ-2），關閉不合併。PR-1b 開啟時即受 `review-record` 把關，驗證用的 commit 不混入 PR-1b。PR-1b 合併後再開探測 PR B 做步驟 8b，在 PR-2 之前確認新版能運作。探測 PR 不合併，不構成未經檢查的合併。代價：兩個 PR 與兩輪 CI。**建議 (d)，並以 (a) 作為「確實無法寫入狀態」時的唯一處理**：(d) 把「第一次執行」移到不需要合併的 PR 上，失敗時不卡住任何內容，也能乾淨地做 DQ-12 (b)；(a) 只在 (d) 或之後的執行實際發現無法寫入時才適用 | PR-1b 開啟前決定；(a) 只在發生時阻擋修正 PR 的合併 | 待決定 |
+| DQ-12 | AC-EQ-2 第一步「CI 失敗的 PR 以管理員身分合併被拒」以什麼驗證？ | 6a 已生效、直接推送已驗證被拒，但「CI 失敗時合併被拒」尚未有紀錄；步驟 8 (1) 的驗證 PR 自然出現一個必要檢查失敗、其他檢查通過的 PR | (a) **以 `review-record` 失敗驗證**：EQ-11 規定審查檢查是 CI 的一部分（「CI 應檢查…沒有時檢查失敗，依 EQ-2 無法合併」）；`enforce_admins` 作用於整條保護規則，不分檢查類型。不需額外 commit。(b) **另外以 `unit` 失敗驗證**：在驗證 PR 推送一個讓 `unit` 失敗的 commit，確認管理員合併被拒，再推送還原；較貼近字面，並實際觀察 check run 類的必要檢查擋下管理員。代價：兩個 commit 與一輪 CI。**建議：採 DQ-11 (d) 時兩者都做（(b) 在探測 PR 上執行，不污染 PR-1b，成本很低）；未採 (d) 時採 (a)** | 步驟 8 | 待決定 |
 
-| DQ-11 | PR-1b 開啟後，review-gate 若沒有寫入 `review-record` 狀態（例如 DA-1 的權限假設不成立、腳本在 API 上出錯），6b 無法完成。修正 review-gate 的 PR 由 main 上的舊版判定，舊版不能運作時，修正 PR 必然在沒有 `review-record` 把關下合併 | v0.5 依 agent-dev-workflow 4.3 把 6b 改到 PR-1b 時發現：review-gate 在 main 上從未執行過（12.6），PR-1b 是它第一次實際執行 | (a) **接受為第三個啟動例外**：只限「修正 review-gate 使其能寫入狀態」的那一個 PR，CI 其餘必要檢查仍須通過，審查紀錄由產品負責人人工確認（同 DQ-8 (2)），合併後下一個 PR 重做 6b 與步驟 8；在 UAT 紀錄或 release notes 註明。(b) **PR-1b 開啟前以 API 先加入必要檢查**（`PATCH …/protection/required_status_checks` 指定 context `review-record`、app_id 15368）：若平台接受未執行過的 context，PR-1b 從開啟起就受把關，但 review-gate 若不能運作，PR-1b 將永遠無法合併，最後仍要移除必要檢查並回到 (a)；能否指定未執行過的 context 未查證（verification.md 2.5）。(c) 停止並重新設計（例如改為 `pull_request` 事件的檢查），成本高且失去「評論後自動更新」。**建議 (a)**，並只在 review-gate 確實沒有寫入狀態時適用；正常情況下不會發生 | PR-1b 開啟前決定；只在發生時阻擋 PR-1b 的合併 | 待決定 |
-| DQ-12 | AC-EQ-2 第一步「CI 失敗的 PR 以管理員身分合併被拒」可否以 PR-1b 上 `review-record` 失敗（12.6 步驟 8 (1)）驗證？ | 6a 已生效、直接推送已驗證被拒，但「CI 失敗時合併被拒」尚未有紀錄；PR-1b 的步驟 8 (1) 自然出現一個必要檢查失敗、其他檢查通過的 PR | (a) **以 `review-record` 失敗驗證**：EQ-11 規定審查檢查是 CI 的一部分（「CI 應檢查…沒有時檢查失敗，依 EQ-2 無法合併」），所以它失敗即為「CI 失敗」；不需額外的 PR。(b) 另外在 PR-1b 推送一個讓 `unit` 失敗的 commit，驗證後再推送修正：較貼近字面，但多兩個 commit 與一輪 CI。**建議 (a)**；若產品負責人認為「CI 失敗」應指測試類檢查，選 (b)，在步驟 8 (1) 與 (2) 之間執行 | PR-1b 的步驟 8 | 待決定 |
 ---
 
 ## 17. 假設
@@ -881,3 +899,4 @@ PR-1、PR-1b 的特別處理見 12.6 步驟 4、6b、8 與「EQ-2 啟動例外�
 | 0.3 | 2026-11-04 | 4.5 不再預先排除 DQ-7 選項 (a)；6.3 改以顯示值描述勝利；`records.js` 移到 PR-5，9.2、9.3、DQ-4 不預設任一選項；PR-4 保留版本號元素並列 EQ-9；切分規則補「已實測的驗收在後續 PR 仍須成立」；12.6 步驟 6b 前審查 agent 不留 PR-2 紀錄；PR-1 以 `design/initial` 為基礎，DQ-8 加入例外 (3)；DQ-7 選項 (b) 補重算方式；DQ-10 修正發現情境 | design-review.md 回歸審查（第 2 輪）N-1、N-2、N-4～N-7、N-9、N-10 |
 | 0.4 | 2026-11-09 | 依產品負責人對 DQ-1～DQ-10 的決定，把「依 DQ-n 決定」全部替換為決定後的設計：重新開始在 S0 與暫停中可用（5.5、5.7、DQ-1）；背景自動暫停、回前景維持暫停（5.6、5.7、6.4、DQ-2）；`newBestTime`／`newFewestMoves` 改為「該項被取代時」、AC-RS-4 補尚無紀錄的正例與反例（4.6、4.11、第 15 節、DQ-3）；格式不符整份作廢及其連帶影響（4.6、9.2、9.3、DQ-4）；儲存不可用時的記憶體紀錄（9.3、9.4、10.3、DQ-5）；過渡規則的適用期間與同步後改填版本號（12.4、DQ-6）；`data-face` 只在實際渲染牌面時輸出，測試以記錄亂數＋錨點＋正式程式重放取得配置（4.3、4.5、4.11、第 8 節、DQ-7）；EQ-2 啟動例外的處理（12.6、DQ-8）；smoke 失敗與 EQ-12 逾時的處理（12.5、DQ-9）；Should 全部實作、補充驗收全部啟用，PR-1、PR-4、PR-5、PR-6 切分表更新（第 14、15 節、DQ-10）；第 16 節改為已關閉；需求依據改為 v1.1；選單與結果畫面高度補算 | 產品負責人 2026-11-09 16:02 的決定；需求文件 v1.1 |
 | 0.5 | 2026-11-09 | (1) 12.2 改寫：採計覆蓋的掃描範圍限定為 `tests/acceptance/`，`tests/unit/` 名稱不採計並禁止含必要編號，驗收測試檔位置限定，驗收測試只允許骨架宣告一種略過寫法、其餘寫法（含本體內 `test.skip()`／`test.fixme()`／`test.fail()`／`t.skip()`、條件略過、`annotation`、`expectFailure`）一律失敗，寫明靜態偵測的界限；`--no-skip` 對 `tests/unit/` 維持原嚴格程度。(2) 新增 12.2.1 執行結果檢查（node:test 自訂 reporter、Playwright json；略過、預期失敗、沒有執行的判定；啟用時點）；12.1、12.3、第 3 節對應更新，job 名稱不變。(3) 第 11 節、12.1：e2e 的 `BUILD_SHA` 改為 job 層級，判斷需要修正並寫明理由。(4) 第 13 節：重複 R 列整則無效、結果值限定、任一列不通過即失敗、工作階段忽略大小寫比對。(5) 12.4：DQ-6 過渡規則改為已隨 PR-1 結束，PR 範本描述更新；多角色 PR 列出全部作者。(6) 12.6：6b 與步驟 8（AC-EQ-11、AC-EQ-2 合併被拒）改到 PR-1b；記錄 6a 已完成（以 API 讀取確認）；確認 review-gate 在 main 上、PR-1b 會觸發；PR-1b 由舊版 review-gate 判定的限制與人工確認。(7) 第 14 節新增 PR-1b，PR-7 的 `--no-skip` 擴及執行結果檢查。(8) 新增 DQ-11、DQ-12；DQ-6、DQ-8 加 v0.5 註記；依據改為 workflow.md v0.2 | PR-1 審查紀錄（PR #1，2026-11-09 08:41）N-1（重複 R 列與大小寫）、N-2（略過偵測不完整、掃描範圍含 `tests/unit/`）、N-3（同步 PR 描述過時）、N-4(a)（作者段落）、N-6（e2e 未傳 `BUILD_SHA`）；實作與測試 agent 回報（同上問題）；agent-dev-workflow 1.1 第 4.3 節「啟動例外以外不得再有不經檢查的合併」 |
+| 0.5（第 3 輪審查修訂） | 2026-11-09 | 同一版本內依設計審查第 3 輪修訂：(M-1) 12.2 骨架本體須為空、新增第 9a 點（非骨架測試至少一個斷言呼叫）、第 9c 點（node:test 驗收測試自 `tests/support/assertions.mjs` 匯入 `assert`）；12.2.1 新增第 6 項（斷言執行至少一次、沒有被吞掉的失敗斷言；Playwright 改用自訂 reporter 計數 `expect` 步驟，node:test 以 hook＋`t.diagnostic` 回報）與「殘餘風險」（只能靠審查的部分、不採用自動化變異測試的理由）；新增審查清單 R-15。(M-2) 第 13 節與 12.4：審查紀錄白名單式判定、作者與審查者識別的字元集。(M-3) 12.6：PR-1b 合併前以新版 `--dry-run` 試算＋完整人工確認清單；新增步驟 8b（新版第一次在平台執行的 AC-EQ-11 證據，及之後每次 review-gate 變更）；6b、8 改以「驗證 PR」描述；DQ-11 擴大範圍並新增選項 (d) 探測 PR、建議改為 (d)＋(a)；DQ-12 建議依 DQ-11 調整。(P-1) 第 16 節表格空行。(P-2) 12.2 第 9b 點測試名稱不得重複。(P-3) 12.2 第 4 點涵蓋任何副檔名、12.3 一般 project 的 `testMatch`、第 8 點寫明掃描範圍。(P-4) 殘餘風險與 R-14。(P-5) 第 16 節多餘空格。第 3、14 節、12.1、12.3 對應更新 | design-review.md 設計審查第 3 輪（commit f4ab877）M-1～M-3、P-1～P-5 |
