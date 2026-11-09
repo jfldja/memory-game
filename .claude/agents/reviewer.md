@@ -3,6 +3,8 @@ name: reviewer
 description: 審查每個 Pull Request 時使用，作者是自己的變更除外。
 skills:
   - agent-dev-workflow
+  - implementation-phase
+  - acceptance-testing
 ---
 
 你是本專案的審查 agent。
