@@ -2,18 +2,18 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.3（依設計審查第 2 輪 N-1～N-10 修訂） |
-| 日期 | 2026-11-04 |
-| 狀態 | 待產品負責人簽核（EQ-6）。簽核前須先決定第 16 節待決問題中標為「阻擋 PR-1」者。簽核紀錄見 docs/design/README.md |
+| 版本 | 0.4（依產品負責人對 DQ-1～DQ-10 的決定修訂） |
+| 日期 | 2026-11-09 |
+| 狀態 | 待產品負責人簽核（EQ-6）。第 16 節待決問題 DQ-1～DQ-10 已於 2026-11-09 16:02 由產品負責人決定（全部採用建議），本版已把決定寫入各章節。簽核紀錄見 docs/design/README.md |
 | 撰寫 | 設計 agent |
-| 依據 | docs/requirements.md v1.0（已簽核）；docs/workflow.md v0.1 |
+| 依據 | docs/requirements.md v1.1（已簽核；v1.1 依 DQ-3 修訂 RS-4）；docs/workflow.md v0.1；產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定 |
 | 相關文件 | verification.md（Q4、Q6 查證）、module-test-standards.md（模組測試標準與需求追溯）、acceptance-test-plan.md（驗收測試骨架計畫）、review-process.md（審查紀錄格式與審查清單）、card-attributes.json、card-preview.html |
 
 本文件描述「怎麼做」。產品行為以需求文件為準；本文件與需求文件衝突時，以需求文件為準並回報設計 agent 修正本文件。需求沒有規定、設計時發現的空白，列在第 16 節「待決問題」，不在本文件中自行決定。
 
 編號慣例：轉移以 `T-`、不變式以 `I-`、待決問題以 `DQ-`、假設以 `DA-`、審查清單以 `R-` 開頭，供 PR 與審查紀錄引用。需求編號（GP-1、AC-GP-1 等）沿用需求文件。
 
-標示「**依 DQ-n 決定**」之處，在產品負責人決定前不得實作任何一個選項。
+第 16 節的待決問題已全部關閉（2026-11-09 16:02）。各章節引用「DQ-n」之處，是指向該問題的決定紀錄，內容已是決定後的設計；之後若再發現需求空白，仍依同一規則新增待決問題，標示「依 DQ-n 決定」，決定前不得實作任何一個選項。
 
 ---
 
@@ -136,7 +136,7 @@ export function createCryptoRandomInt(cryptoObj = globalThis.crypto); // 正式�
 export function deal(faceIds /* string[6] */, randomInt) /* : string[12] */;
 ```
 
-做法：建立 `[f1,f1,f2,f2,…,f6,f6]`，以 Fisher–Yates 洗牌（`for i = 11..1: j = randomInt(i+1); swap(i, j)`）。每次 `deal` 恰好依序呼叫 `randomInt(12)`、`randomInt(11)`、…、`randomInt(2)` 共 11 次，且每次遊玩開始只呼叫一次 `deal`、在任何提示之前；由單元測試固定。若 DQ-7 選擇「測試控制亂數」，這個呼叫順序即為測試介面契約。正確性與 AC-GP-2 的關係見第 8 節。
+做法：建立 `[f1,f1,f2,f2,…,f6,f6]`，以 Fisher–Yates 洗牌（`for i = 11..1: j = randomInt(i+1); swap(i, j)`）。每次 `deal` 恰好依序呼叫 `randomInt(12)`、`randomInt(11)`、…、`randomInt(2)` 共 11 次，且每次遊玩開始只呼叫一次 `deal`、在任何提示之前；由單元測試固定。依 DQ-7 的決定（(b)＋(c)），這個呼叫順序與下列兩點是端對端測試重算牌面配置的介面契約（第 8 節）：`randomInt` 每抽一次呼叫一次 `cryptoObj.getRandomValues(new Uint32Array(1))`（4.2）；`app.js` 在「開始一次遊玩」的操作處理器中同步呼叫 `deal`，在此之前不呼叫任何其他亂數。正確性與 AC-GP-2 的關係見第 8 節。
 
 ### 4.4 core/time.js
 
@@ -172,7 +172,7 @@ game.nextWakeup(now)    // → 下一次畫面需要更新的時間（同一時�
  * }} GameView */
 ```
 
-`GameView.cards[].faceId` 只供畫面層在牌為 `up`／`matched` 且未暫停時決定要畫哪張牌面；背面朝上時，畫面層不得把牌面輸出為可見的圖像或可朗讀的名稱；是否以 `data-face` 屬性輸出**依 DQ-7 決定**。
+`GameView.cards[].faceId` 只供畫面層在牌為 `up`／`matched` 且未暫停時決定要畫哪張牌面；背面朝上時，畫面層不得把牌面輸出為可見的圖像、可朗讀的名稱或任何 DOM 屬性。依 DQ-7 的決定，`data-face` 屬性**只在該牌實際渲染牌面時**（`data-shown=face`：`up`／`matched` 且未暫停）輸出；其他時候移除該屬性。
 
 `createGame` 不讀時鐘；遊戲在 `ready` 狀態下不需要時間。第一張牌翻開時以該次 `flip` 的 `now` 作為計時起點（TM-1）。
 
@@ -184,13 +184,13 @@ game.nextWakeup(now)    // → 下一次畫面需要更新的時間（同一時�
  *  @typedef {{ bestTime: TimeRecord|null, fewestMoves: MovesRecord|null }} LevelRecords
  *  @typedef {{ 1: LevelRecords, 2: LevelRecords, 3: LevelRecords }} Records */
 export function emptyRecords();                       // 三關六項皆為 null
-export function parseRecords(text /* string|null */);  // → { records, status: 'ok'|'empty'|'invalid' }；格式不符時的處理範圍與回傳細節依 DQ-4 決定
+export function parseRecords(text /* string|null */);  // → { records, status: 'ok'|'empty'|'invalid' }；empty、invalid 時 records 為 emptyRecords()（整份作廢，DQ-4）
 export function serializeRecords(records);           // → string（第 9 節格式）
 export function mergeWin(records, { level, tenths, moves, hintsUsed });
 // → { records, newBestTime: boolean, newFewestMoves: boolean }（RC-1、RC-3、RC-4）
 ```
 
-`mergeWin` 規則：某項為 null，或本次數值**嚴格小於**既有數值時取代，並以本次的 `hintsUsed` 一起保存；相等不取代（RC-3、「優於」）。時間比較用 `tenths`（顯示值）。`newBestTime`／`newFewestMoves` 只在「既有紀錄存在且本次優於」時為 true；既有紀錄為 null 時的值見第 16 節 DQ-3。
+`mergeWin` 規則：某項為 null，或本次數值**嚴格小於**既有數值時取代，並以本次的 `hintsUsed` 一起保存；相等不取代（RC-3、「優於」）。時間比較用 `tenths`（顯示值）。`newBestTime`／`newFewestMoves` 在該項被取代時為 true，也就是「該項既有紀錄為 null，或本次嚴格優於既有紀錄」（RS-4 v1.1；DQ-3）；相等或較差時為 false。標示條件與取代條件相同，因此結果畫面的「新紀錄」與選單上紀錄是否更新一致。
 
 ### 4.7 platform/clock.js
 
@@ -246,16 +246,16 @@ export function onHidden(callback); // document.visibilitychange 且 document.vi
 | 遊戲畫面 | `[data-testid="game"]`，屬性 `data-level`、`data-phase`、`data-paused` | |
 | 難度名稱、時間上限 | `level-name`、`time-limit` | `time-limit` 文字只含秒數整數，例「60」 |
 | 已用時間、步數、剩餘提示 | `elapsed`、`moves`、`hints-left` | 文字只含數值，例「12.3」「3」「2」；單位放在相鄰元素 |
-| 牌 | `[data-testid="card"]`，共 12 個，DOM 順序即索引 0..11 | `data-index`；`data-state`（`down`／`up`／`matched`，為邏輯狀態，暫停時不變）；`data-shown`（`face`／`back`，為實際渲染的內容：暫停中或背面朝上時為 `back`）；`data-hinted`（`true`／`false`）；`data-face`（牌面識別碼）**依 DQ-7 決定**是否輸出及何時輸出 |
+| 牌 | `[data-testid="card"]`，共 12 個，DOM 順序即索引 0..11 | `data-index`；`data-state`（`down`／`up`／`matched`，為邏輯狀態，暫停時不變）；`data-shown`（`face`／`back`，為實際渲染的內容：暫停中或背面朝上時為 `back`）；`data-hinted`（`true`／`false`）；`data-face`（牌面識別碼，例 `L1-3`）**只在 `data-shown=face` 時存在**，`data-shown=back` 時（背面朝上、暫停中）不存在此屬性（DQ-7 選項 (c)） |
 | 牌內圖像 | 牌面 SVG 帶 `data-role="face"`，牌背 SVG 帶 `data-role="back"` | 兩者皆 `aria-hidden="true"`，不帶牌面識別碼 |
-| 按鈕 | `btn-hint`、`btn-pause`（暫停中文字改為「繼續」）、`btn-restart`（PS-8）、`btn-menu` | 無法使用時 `aria-disabled="true"`，不使用 `disabled` 屬性（第 10.4 節） |
+| 按鈕 | `btn-hint`、`btn-pause`（暫停中文字改為「繼續」）、`btn-restart`（PS-8；遊戲畫面中一律可用，DQ-1）、`btn-menu` | 無法使用時 `aria-disabled="true"`，不使用 `disabled` 屬性（第 10.4 節） |
 | 暫停遮蔽層 | `pause-mask` | 暫停時可見 |
 | 結果畫面 | `[data-testid="result"]`，屬性 `data-kind`（`won`／`lost`） | |
 | 結果數值 | `result-time`、`result-moves`、`result-hints`、`result-level-name` | 只含數值或難度名稱 |
-| 新紀錄標示 | `new-record-time`、`new-record-moves` | RS-4 |
+| 新紀錄標示 | `new-record-time`、`new-record-moves` | RS-4；只在對應的 `newBestTime`／`newFewestMoves` 為 true 時存在（4.6） |
 | 結果按鈕 | `btn-replay`、`btn-next-level`（RS-5）、`btn-result-menu` | |
 
-端對端測試如何得知牌面配置（找出同一對、驗證 AC-GP-1／AC-GP-2 的排列），**依 DQ-7 決定**。各選項對本表的影響見第 16 節 DQ-7。不論選哪一項：牌內 SVG 不帶牌面識別碼的可及性名稱；背面朝上的牌不得以任何可見或可朗讀的方式透露牌面。
+端對端測試如何得知牌面配置（找出同一對、驗證 AC-GP-1／AC-GP-2 的排列）：依 DQ-7 的決定採 (b)＋(c)，做法見第 8 節「端對端測試取得牌面配置」。牌內 SVG 不帶牌面識別碼的可及性名稱；背面朝上或暫停中的牌不以任何可見、可朗讀或 DOM 屬性的方式透露牌面；正式程式不含任何測試專用入口。
 
 ---
 
@@ -337,12 +337,12 @@ export function onHidden(callback); // document.visibilitychange 且 document.vi
 
 | 狀態 | 點背面的牌 | 點正面或已配對的牌 | 提示 | 暫停 | 回到選單 | 重新開始（PS-8，S） |
 |---|---|---|---|---|---|---|
-| S0 尚未開始計時 | T-1：翻開並開始計時（GP-3、TM-1） | 不適用（全部背面） | T-9 無效果（HT-10） | T-12（6.9「可用」） | T-14（PS-7） | T-14（DQ-1） |
-| S1 | T-2（GP-3） | T-7（GP-7） | `hintsLeft>0` 時 T-8，否則 T-9（HT-4） | T-12 | T-14 | T-14 |
-| S2 已翻開一張 | T-3／T-5（TM-3） | T-7（GP-7） | T-9（HT-7） | T-12 | T-14 | T-14 |
-| S3 翻錯鎖定 | T-7（GP-6） | T-7（GP-6） | T-9（HT-7） | T-12，鎖定倒數隨遊玩時鐘暫停（PS-9） | T-14 | T-14 |
-| H 提示標示中 | 依並存的 S1／S2／S3 | 依並存的狀態 | T-9（HT-8） | T-12，標示倒數暫停（PS-9） | T-14 | T-14 |
-| P 暫停中 | T-7（PS-2） | T-7（PS-2） | T-9，按鈕可見且不被遮蔽（PS-10） | 按鈕改為「繼續」，T-13（PS-3） | T-14（PS-7） | T-14（DQ-1） |
+| S0 尚未開始計時 | T-1：翻開並開始計時（GP-3、TM-1） | 不適用（全部背面） | T-9 無效果（HT-10） | T-12（6.9「可用」） | T-14（PS-7） | 可用：T-14 後以同一關開始新的遊玩（DQ-1） |
+| S1 | T-2（GP-3） | T-7（GP-7） | `hintsLeft>0` 時 T-8，否則 T-9（HT-4） | T-12 | T-14 | T-14＋新遊玩 |
+| S2 已翻開一張 | T-3／T-5（TM-3） | T-7（GP-7） | T-9（HT-7） | T-12 | T-14 | T-14＋新遊玩 |
+| S3 翻錯鎖定 | T-7（GP-6） | T-7（GP-6） | T-9（HT-7） | T-12，鎖定倒數隨遊玩時鐘暫停（PS-9） | T-14 | T-14＋新遊玩 |
+| H 提示標示中 | 依並存的 S1／S2／S3 | 依並存的狀態 | T-9（HT-8） | T-12，標示倒數暫停（PS-9） | T-14 | T-14＋新遊玩 |
+| P 暫停中 | T-7（PS-2） | T-7（PS-2） | T-9，按鈕可見且不被遮蔽（PS-10） | 按鈕改為「繼續」，T-13（PS-3） | T-14（PS-7） | 可用：T-14＋新遊玩，新遊玩為 S0、未暫停（DQ-1） |
 | W／L | 不適用（結果畫面覆蓋） | 不適用 | 不適用 | 不適用 | 結果畫面「回到選單」（RS-3） | 結果畫面「重玩本關」（RS-2） |
 
 ### 5.6 狀態 × 計時器（對照需求 6.9）
@@ -355,7 +355,7 @@ export function onHidden(callback); // document.visibilitychange 且 document.vi
 | 時間上限在 S3 或 H 中到達 | 停止於上限，判定失敗 | 取消 | 取消 | T-11 |
 | 勝利 | 停止（TM-5） | 不適用（I-1：勝利的那次點擊是配對） | 取消 | T-4 |
 | 回到選單、重新整理、關閉 | 該次遊玩結束 | 取消 | 取消 | T-14；`app.js` 同時取消 `setTimer` |
-| 頁面切到背景 | PS-5 實作時同暫停；未實作時繼續累計 | 同左 | 同左 | 第 6.4 節 |
+| 頁面切到背景 | 同暫停（PS-5 本輪實作，DQ-10）；回到前景維持暫停（DQ-2） | 同左 | 同左 | 第 6.4 節 |
 
 ### 5.7 狀態交互檢查（依 requirements-spec 3.8）
 
@@ -379,12 +379,16 @@ export function onHidden(callback); // document.visibilitychange 且 document.vi
 | 結果畫面出現後點擊原牌的位置 | 被結果畫面覆蓋；即使事件到達，`phase` 為終止狀態，T-7 | AC-LV-6「牌無法再點擊」 |
 | 勝利畫面出現後等待 | `finalPlayMs` 凍結，`nextWakeup=null` | AC-TM-5 |
 | 用完 3 次提示後重玩 | 新的 `game`，`hintsLeft=3` | HT-1、AC-HT-1 |
-| 暫停中切到背景再回來 | 維持暫停 | PS-5（實作時）、DQ-2 |
-| 背景中（PS-5 未實作）時間上限到達 | 回到前景時 `advance` 判定失敗，已用時間停在上限 | LV-6、6.9 |
+| 計時中切到背景再回來 | 切到背景時 T-12；回到前景仍為 P，遮蔽層顯示、已用時間不變，玩家按「繼續」才 T-13 | PS-5、DQ-2 |
+| 暫停中切到背景再回來 | 維持暫停（`canPause` 為 false，不重複暫停） | PS-5、DQ-2 |
+| S0 切到背景再回來 | T-12（6.9 S0 可暫停）；回到前景仍為 P，已用時間 0.0 | PS-5、DQ-2 |
+| 背景中未收到 `visibilitychange`（例如頁面被直接凍結）而時間上限到達 | 回到前景時 `advance` 判定失敗，已用時間停在上限 | LV-6、6.9（防禦性處理；PS-5 正常運作時不會發生） |
+| 暫停中、尚未開始計時時按「重新開始」 | 新遊玩：重新 `deal`、S0、未暫停，已用時間 0.0、步數 0、剩餘提示 3 | PS-8、DQ-1 |
+| 翻錯鎖定或提示標示中按「重新開始」 | T-14 取消 `setTimer`；新遊玩不帶入舊的鎖定或標示 | PS-8、T-14 |
 | 兩個分頁同時遊玩同一瀏覽器 | 各自獨立；勝利時重新讀取儲存的紀錄再合併，不覆蓋另一分頁剛寫入的較佳紀錄 | RC-3（以保存時的既有紀錄比較） |
 | 重新整理後 | 一律顯示選單 | A-6 |
 
-需求沒有規定、需要產品負責人決定的組合列在第 16 節（DQ-1～DQ-5）。
+需求沒有規定、經產品負責人決定的組合見第 16 節 DQ-1～DQ-5（已關閉）。
 
 ---
 
@@ -418,9 +422,9 @@ export function onHidden(callback); // document.visibilitychange 且 document.vi
 
 ### 6.4 背景分頁（PS-5，Should）
 
-**建議本輪實作**（成本低，且可消除需求第 9 節「背景降頻造成誤差」的風險）。做法：`visibility.js` 的 `onHidden` 觸發時，若目前畫面是遊戲且 `canPause`，呼叫 `game.pause(now)`。回到前景時**維持暫停**，由玩家按「繼續」（DQ-2，待產品負責人確認）。
+**本輪實作**（DQ-10）。做法：`visibility.js` 的 `onHidden` 觸發時，若目前畫面是遊戲且 `canPause`，呼叫 `game.pause(now)` 並重繪（遮蔽層顯示、取消排程）。回到前景時**維持暫停**，不自動繼續，由玩家按「繼續」（DQ-2）。`visibility.js` 不提供「回到前景」的回呼，`app.js` 也不監聽它。選單與結果畫面不受影響。
 
-若產品負責人決定本輪不做 PS-5：背景中遊玩時鐘照常累計（`performance.now()` 在背景仍前進），瀏覽器降頻只會延後畫面更新，回到前景的第一次喚醒會補做所有到期事件，已用時間仍正確。
+防禦性處理：若瀏覽器未派送 `visibilitychange`（例如直接凍結頁面），遊玩時鐘照常累計（`performance.now()` 在背景仍前進），回到前景的第一次喚醒會補做所有到期事件，已用時間仍正確。
 
 ---
 
@@ -432,7 +436,7 @@ export function onHidden(callback); // document.visibilitychange 且 document.vi
 | 端對端驗收測試（NFR-6 以外） | Playwright Clock：在 `page.goto` 前 `clock.install({ time: 0 })`，接著 `clock.pauseAt(…)` 凍結時間，再以 `clock.runFor(ms)` 推進 | 檢查點落在容差邊界（10.1） |
 | 端對端 NFR-6 | **不安裝**時鐘，使用真實時間；放在獨立的 `*-realtime` project，以單一 worker 在其他測試之後執行（12.3） | 量測計時準確度 |
 
-正式程式只透過 `platform/clock.js` 的 `now()` 與 `setTimer()` 取得時間。Playwright Clock 會替換 `performance`、`Date`、`setTimeout`、`requestAnimationFrame`（官方 API 文件 https://playwright.dev/docs/api/class-clock ；本次實測確認 `performance.now()` 與 `setTimeout` 都被替換）。因此計時相關的端對端測試不需要任何測試專用的程式入口（牌面配置的取得方式另依 DQ-7 決定）。
+正式程式只透過 `platform/clock.js` 的 `now()` 與 `setTimer()` 取得時間。Playwright Clock 會替換 `performance`、`Date`、`setTimeout`、`requestAnimationFrame`（官方 API 文件 https://playwright.dev/docs/api/class-clock ；本次實測確認 `performance.now()` 與 `setTimeout` 都被替換）。因此計時相關的端對端測試不需要任何測試專用的程式入口；牌面配置的取得方式也不需要（第 8 節，DQ-7）。
 
 **已知陷阱（寫入測試計畫與設計 skill）：** `clock.install()` 之後時間仍隨真實時間流動；不先 `pauseAt` 就讀取，檢查點會漂移。
 
@@ -449,8 +453,18 @@ export function onHidden(callback); // document.visibilitychange 且 document.vi
 
 - 統計部分（60,000 次）在 Node.js 執行：`deal(getLevel(1).faceIds, createCryptoRandomInt())` 呼叫 60,000 次，統計 72 格。與正式程式走完全相同的程式碼路徑。
 - 反例：測試以固定回傳 0 的 `randomInt` 呼叫 `deal`，檢查同一個統計函式判定失敗；20 次相鄰比較也應判定失敗。
-- 20 次連續遊玩部分在端對端測試執行，排列的讀取方式**依 DQ-7 決定**。
+- 20 次連續遊玩部分在端對端測試執行，排列以下述「端對端測試取得牌面配置」取得。
 - 提示選牌（T-8）同樣使用注入的 `randomInt`。
+
+**端對端測試取得牌面配置（DQ-7 決定：(b)＋(c)）：**
+
+1. **記錄（測試端）：** 測試在 `page.goto` 前以 `page.addInitScript` 包裝頁面的 `crypto.getRandomValues`：呼叫原函式後，把回傳陣列的每個值依序附加到一個由測試注入的記錄陣列。正式程式不變、不讀取這個陣列。
+2. **錨點：** 測試在每個「開始一次遊玩」的操作（進入關卡、重玩本關、重新開始、挑戰下一個難度）**之前**讀取記錄長度 k。依 4.3 的契約，該操作的處理器第一個消耗亂數的是 `deal`，所以本次遊玩的 `deal` 從第 k 個值開始取。先前遊玩中提示（T-8）消耗的亂數都在 k 之前；`deal` 內拒絕取樣的重抽由步驟 3 的重放自然處理。因此不需要假設每局固定取幾個值，也不需要重放提示選牌。
+3. **重算（測試端，Node.js）：** 以 `src/js/core/random.js` 的 `createCryptoRandomInt`，搭配一個從第 k 個值起依序回放的假 `cryptoObj`，呼叫 `src/js/core/deal.js` 的 `deal(getLevel(關).faceIds, randomInt)` 得到 12 個位置的牌面。重放時假 `cryptoObj` 的值用完即視為測試錯誤（記錄不足），不得自行補值。
+4. **以畫面驗證（選項 (c)）：** 牌翻到正面時才帶 `data-face`（4.11）。測試翻開牌後比對 `data-face` 與重算結果；AC-GP-1 依重算結果逐對翻開全部 6 對，確認每張翻開的牌 `data-face` 都與重算一致、6 對全部配對成功，證明畫面上的配置確為 6 種各 2 張。重算與畫面不一致時，視為產品或契約錯誤，不得改用其他方式繞過。
+5. **不洩漏：** 背面朝上與暫停中的牌沒有 `data-face`；AC-GP-1、AC-PS-4 的測試同時檢查這一點（反例）。
+
+測試 agent 把步驟 1～3 寫成 `tests/support/` 的單一共用輔助函式，所有端對端測試只透過它取得配置。
 
 ---
 
@@ -484,20 +498,26 @@ export function onHidden(callback); // document.visibilitychange 且 document.vi
 5. `fewestMoves` 為 null，或 `{ moves, hintsUsed }`：`moves` 為整數且 `6 ≤ moves ≤ 100000`；`hintsUsed` 為 0～3 的整數。
 6. 多出的欄位忽略。
 
-格式不符時的處理範圍**依 DQ-4 決定**（整份、逐項或整份＋備份）；`records.js` 歸 PR-5，DQ-4 決定前不實作任何一個選項的處理範圍。各選項的連帶影響見 DQ-4，例如若採整份（字面）：三關全部視為無紀錄，下一次勝利保存時以新資料覆寫整份，原資料中其他關卡的內容永久遺失（DQ-4 的連帶影響）。不論哪一項，主控台不得出現未處理的錯誤（AC-RC-8）。
+**格式不符時整份作廢（DQ-4 選項 (a)）：** 任一條件不成立（包括只有某一關的某一項不符），`parseRecords` 回傳 `{ records: emptyRecords(), status: 'invalid' }`，三關六項全部視為無紀錄（RC-8）。載入時不改寫儲存內容；**下一次勝利保存時以新資料覆寫整份，原資料中其他關卡的內容永久遺失**，這是產品負責人接受的連帶影響。不做逐項保留，也不另存備份。主控台不得出現未處理的錯誤（AC-RC-8）。
 
 ### 9.3 讀寫流程
 
 | 時點 | 動作 |
 |---|---|
 | 頁面載入 | `probeStorage()` 決定是否顯示「紀錄無法保存」；`readRecordsText()` → `parseRecords` → 選單顯示 |
-| 勝利 | **重新讀取** → `parseRecords`（格式不符時的合併基礎依 DQ-4 決定）→ `mergeWin` → `writeRecordsText`。`newBestTime`／`newFewestMoves` 提供給結果畫面（RS-4） |
+| 勝利（儲存可用） | **重新讀取** → `parseRecords`（`invalid` 時以 `emptyRecords()` 為合併基礎，DQ-4）→ `mergeWin` → `writeRecordsText`。`newBestTime`／`newFewestMoves` 提供給結果畫面（RS-4）。寫入失敗時轉為「儲存不可用」（9.4），本次合併結果保留在記憶體 |
+| 勝利（儲存不可用） | 不重新讀取；以記憶體中的紀錄 `mergeWin`，結果保留在記憶體並供選單顯示（9.4，DQ-5）；仍嘗試寫入一次，失敗不報錯 |
 | 失敗、回到選單、重新開始、重新整理 | 不讀不寫（RC-2） |
-| 清除紀錄並確認 | `removeRecords()`；取消時不動作（RC-7） |
+| 清除紀錄並確認 | `removeRecords()`，記憶體中的紀錄同時設為 `emptyRecords()`；取消時不動作（RC-7） |
 
 ### 9.4 儲存不可用（RC-9，Should）
 
-`probeStorage()` 失敗或任何寫入失敗時：遊戲照常進行；選單顯示「紀錄無法保存」提示（`storage-warning`）。不可用期間紀錄是否保留在記憶體中（本次開啟期間可見），列為 DQ-5。
+`probeStorage()` 失敗或任何寫入失敗時，`app.js` 把本次開啟標記為「儲存不可用」，直到頁面關閉或重新整理：
+
+- 遊戲照常進行；選單顯示「紀錄無法保存」提示（`storage-warning`），之後一直顯示。
+- **本次開啟期間的勝利保留在記憶體並在選單顯示（DQ-5）**：載入時若能讀取，以 `parseRecords` 的結果作為記憶體紀錄的初值，否則為 `emptyRecords()`；之後以記憶體紀錄為準，不再重新讀取儲存。關閉或重新整理頁面後記憶體紀錄消失。
+- 結果畫面的「新紀錄」以記憶體紀錄判定（4.6），與選單一致。
+- 任何讀寫例外都不往上丟出（4.8）。
 
 ---
 
@@ -545,7 +565,7 @@ export function onHidden(callback); // document.visibilitychange 且 document.vi
 | 1920×1080 | 橫向 4×3 | 469 | (1080−160)／3＝306.7 | 240（上限） | 140＋720＋16＝876（204） | 1000（920） |
 | 844×390（S） | 側欄 4×3 | (844−16−176−8−24−4)／4＝154 | (390−16−16−4)／3＝118 | 118 | 16＋354＋16＝386（4）；側欄 8＋336＋8＝352（38） | 8＋176＋8＋472＋24＋8＝696（148） |
 
-**360×640 的按鈕（NFR-5）：** 按鈕列寬 360−16＝344。4 個按鈕（提示、暫停、重新開始、回到選單）：(344−3×8)／4＝80，每個 80×48。若本輪不做 PS-8，3 個按鈕各 (344−16)／3＝109×48。「回到選單」四個字以 16 px 約 64 px 寬，放得下。牌 108×108。兩者都 ≥ 44×44，且高度有 4 px 以上餘裕。
+**360×640 的按鈕（NFR-5）：** 按鈕列寬 360−16＝344。4 個按鈕（提示、暫停、重新開始、回到選單）：(344−3×8)／4＝80，每個 80×48。PS-8 本輪實作（DQ-10），在 PR-6 加入；PR-4、PR-5 期間為 3 個按鈕，各 (344−16)／3＝109×48。兩種按鈕數都滿足 NFR-5，PR-6 加入按鈕後 PR-4 已實測的 NFR-5 遊戲畫面與 NFR-3 仍須通過。「回到選單」四個字以 16 px 約 64 px 寬，放得下。牌 108×108。兩者都 ≥ 44×44，且高度有 4 px 以上餘裕。
 
 **狀態列文字寬度（360×640）：** 第 1 行「困難　限時 60 秒」約 9 個全形字寬 144 px；第 2 行「時間 89.9　步數 99　提示 3」約 15 個字寬 240 px；皆 ≤ 344，不換行。
 
@@ -566,7 +586,7 @@ export function onHidden(callback); // document.visibilitychange 且 document.vi
 | 三個難度區塊（由上而下） | 按鈕「簡單／普通／困難」＋「限時 90／75／60 秒」；其下兩行紀錄：「最佳時間 25.0 秒（提示 2 次）」「最少步數 16 步（提示 0 次）」，無紀錄顯示「—」 | LV-1、LV-7、LV-9、RC-4、RC-5 |
 | 清除紀錄按鈕 | 開啟頁內確認對話框：「清除三個難度的全部紀錄？」〔取消〕〔清除〕 | RC-7 |
 | 說明文字 | 「紀錄只存在此瀏覽器」 | 需求第 9 節風險對策（設計決定顯示） |
-| 儲存不可用提示 | 「紀錄無法保存」，只在不可用時顯示 | RC-9 |
+| 儲存不可用提示 | 「紀錄無法保存」，只在不可用時顯示；不可用期間選單仍顯示本次開啟期間的紀錄（9.4） | RC-9、DQ-5 |
 | 版本號 | 頁尾「版本 1.0.0+abc1234」 | EQ-9 |
 
 360×640 高度估算（按鈕高 48、文字行高 20）：標題 48＋3×(48＋2×20＋16)＝312＋清除按鈕 48＋說明與版本 2×20＋間距 6×8＝48＋外距 16＝512 ≤ 636（保留 4 px 餘裕）。選單文字一律 `white-space: nowrap`；紀錄行「最佳時間 89.9 秒（提示 3 次）」約 17 個字寬 272 px ≤ 344。
