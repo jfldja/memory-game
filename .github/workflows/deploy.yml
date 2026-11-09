@@ -1,0 +1,98 @@
+# 部署到 GitHub Pages（spec.md 12.5；EQ-9、EQ-12）
+# 部署不等待端對端測試：PR 階段已全部通過，分支保護要求分支為最新。
+# smoke 失敗時的處理見 spec.md 12.5（重跑一次並記錄；不放寬 9 分鐘門檻）。
+name: deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.d.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.d.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: build
+        env:
+          BUILD_SHA: ${{ github.sha }}
+        run: node scripts/build.mjs
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: dist
+      - id: d
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  smoke:
+    name: smoke
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read # 讀取本次執行（attempt）的開始時間
+    steps:
+      - name: AC-EQ-9（部署）與 EQ-12 證據
+        env:
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+          EXPECTED_SHA: ${{ github.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+        # 每 15 秒讀取 <page_url>js/version.js，直到含 github.sha 前 7 碼；
+        # 自本次 workflow 執行（attempt）開始 9 分鐘未出現即失敗。
+        # 加上查詢字串避開 CDN 快取（Pages 回應帶 Cache-Control: max-age=600）。
+        run: |
+          node --input-type=module <<'EOF'
+          const env = process.env;
+          const short = env.EXPECTED_SHA.slice(0, 7);
+          const api = `${env.GITHUB_API_URL}/repos/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}/attempts/${env.GITHUB_RUN_ATTEMPT}`;
+          const runRes = await fetch(api, {
+            headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${env.GITHUB_TOKEN}` },
+          });
+          if (!runRes.ok) throw new Error(`讀取執行開始時間失敗：HTTP ${runRes.status}`);
+          const startedAt = Date.parse((await runRes.json()).run_started_at);
+          const deadline = startedAt + 9 * 60 * 1000;
+          const base = env.PAGE_URL.endsWith('/') ? env.PAGE_URL : `${env.PAGE_URL}/`;
+          const target = new URL('js/version.js', base);
+          console.log(`執行開始 ${new Date(startedAt).toISOString()}，期限 ${new Date(deadline).toISOString()}，等待 ${target} 含 ${short}`);
+          for (;;) {
+            const url = new URL(target);
+            url.searchParams.set('t', String(Date.now()));
+            try {
+              const res = await fetch(url, { cache: 'no-store' });
+              const text = await res.text();
+              const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+              console.log(`${new Date().toISOString()}（開始後 ${elapsed} 秒）HTTP ${res.status} ${JSON.stringify(text.trim().slice(0, 80))}`);
+              if (res.ok && text.includes(short)) {
+                console.log(`版本號已出現：開始後 ${elapsed} 秒`);
+                process.exit(0);
+              }
+            } catch (err) {
+              console.log(`${new Date().toISOString()} 讀取失敗：${err.message}`);
+            }
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) break;
+            await new Promise((r) => setTimeout(r, Math.min(15000, remaining)));
+          }
+          console.error(`自執行開始 9 分鐘內未出現 ${short}（失敗時依 spec.md 12.5 重跑一次並記錄）`);
+          process.exit(1);
+          EOF
