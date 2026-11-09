@@ -1,0 +1,23 @@
+:root {
+  --color-bg: #ffffff;
+  --color-text: #1a1a1a;
+  --font-stack: system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif;
+}
+
+html {
+  touch-action: manipulation;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-stack);
+}
+
+.app-footer {
+  padding: 8px;
+  font-size: 16px;
+  line-height: 20px;
+  white-space: nowrap;
+}
