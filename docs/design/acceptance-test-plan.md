@@ -2,9 +2,9 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.3（依設計審查第 2 輪修訂） |
-| 日期 | 2026-11-04 |
-| 依據 | agent-dev-workflow 第 4.3 節（驗收測試骨架）；需求 EQ-4、AC-EQ-4、第 10 節；spec.md v0.2 第 12、14 節 |
+| 版本 | 0.4（依產品負責人對 DQ-1～DQ-10 的決定修訂） |
+| 日期 | 2026-11-09 |
+| 依據 | agent-dev-workflow 第 4.3 節（驗收測試骨架）；需求文件 v1.1 的 EQ-4、AC-EQ-4、第 10 節；spec.md v0.4 第 8、12、14、15 節 |
 | 使用者 | 測試 agent（撰寫骨架與驗收測試）、審查 agent（R-6） |
 
 ---
@@ -23,14 +23,14 @@
 
 層次：**U**＝無瀏覽器層（`node --test`，`tests/acceptance/unit/`）；**E**＝端對端層（Playwright 三引擎，`tests/acceptance/e2e/`）。
 
-「依 DQ-7」：找出同一對、讀取排列的方式依 spec.md 第 16 節 DQ-7 的決定；決定前骨架只寫名稱與略過標記，不寫依賴某一選項的輔助程式。
+「配置輔助」：找出同一對、讀取排列的方式依 DQ-7 的決定（(b)＋(c)），一律透過 spec.md 第 8 節「端對端測試取得牌面配置」的共用輔助函式（`tests/support/`，PR-4 加入）。PR-1 的骨架只寫名稱與略過標記。
 
 | # | 編號 | 驗證 | 層 | 骨架檔案 | 轉實測的 PR | 測試要點 |
 |---|---|---|---|---|---|---|
-| 1 | AC-GP-1 | 自動 | E | gameplay.spec.mjs | PR-4 | 12 張 `data-state=down`、`data-shown=back`；排列的讀取依 DQ-7 |
-| 2 | AC-GP-2 | 自動 | U＋E | deal.test.mjs；gameplay.spec.mjs | PR-2（U）、PR-4（E） | U：60,000 次 `deal`＋反例；E：以「重玩本關」連續 20 次遊玩，相鄰不同（排列讀取依 DQ-7） |
+| 1 | AC-GP-1 | 自動 | E | gameplay.spec.mjs | PR-4 | 12 張 `data-state=down`、`data-shown=back`，且都**沒有** `data-face`（不洩漏）；以配置輔助重算排列，依重算結果逐對翻開 6 對，每張翻開的牌 `data-face` 與重算一致、6 對全部配對（證明 6 種各 2 張） |
+| 2 | AC-GP-2 | 自動 | U＋E | deal.test.mjs；gameplay.spec.mjs | PR-2（U）、PR-4（E） | U：60,000 次 `deal`＋反例；E：以「重玩本關」連續 20 次遊玩，每次以配置輔助在點擊前取錨點、重算排列，符合 AC-GP-1 的組成且相鄰不同；另以翻開數張牌比對 `data-face`，確認重算與畫面一致 |
 | 3 | AC-GP-3 | 自動 | E | gameplay.spec.mjs | PR-4 | |
-| 4 | AC-GP-4 | 自動 | E | gameplay.spec.mjs | PR-4 | 控制時鐘 `runFor(2000)`；找同一對依 DQ-7 |
+| 4 | AC-GP-4 | 自動 | E | gameplay.spec.mjs | PR-4 | 控制時鐘 `runFor(2000)`；以配置輔助找同一對 |
 | 5 | AC-GP-5 | 自動 | E | gameplay.spec.mjs | PR-4 | 第二張翻開後 `runFor(900)` 仍正面；再 `runFor(200)` 背面 |
 | 6 | AC-GP-6 | 自動 | E | gameplay.spec.mjs | PR-4 | 0.5 秒時點第三張 |
 | 7 | AC-GP-7 | 自動 | E | gameplay.spec.mjs | PR-4 | |
@@ -61,7 +61,7 @@
 | 32 | AC-PS-1 | 自動 | E | pause.spec.mjs | PR-4 | |
 | 33 | AC-PS-2 | 自動 | E | pause.spec.mjs | PR-4 | |
 | 34 | AC-PS-3 | 自動 | E | pause.spec.mjs | PR-4 | |
-| 35 | AC-PS-4 | 自動 | E | pause.spec.mjs | PR-4 | 暫停中：`pause-mask` 可見，12 張 `data-shown=back`，牌面區內沒有可見的 `[data-role=face]`；繼續後依 `data-state` 恢復 `data-shown=face` |
+| 35 | AC-PS-4 | 自動 | E | pause.spec.mjs | PR-4 | 暫停中：`pause-mask` 可見，12 張 `data-shown=back`、都沒有 `data-face`，牌面區內沒有可見的 `[data-role=face]`；繼續後依 `data-state` 恢復 `data-shown=face` 與 `data-face` |
 | 36 | AC-PS-7 | 自動 | E | pause.spec.mjs | PR-5 | 需要紀錄顯示 |
 | 37 | AC-PS-9 | 自動 | E | pause.spec.mjs | PR-4 | |
 | 38 | AC-PS-10 | 自動 | E | pause.spec.mjs | PR-4 | `document.elementFromPoint(中心)` 為提示按鈕；以 `page.mouse.click` 點擊 |
@@ -95,24 +95,26 @@
 
 NFR-1 不需要獨立測試（EQ-4 例外），由 playwright.config 的三個 projects 與 CI 矩陣滿足、AC-EQ-3 人工檢查。
 
-## 3. 設計補充驗收（Should，依 DQ-10）
+## 3. 設計補充驗收（Should，DQ-10 決定全部啟用）
 
-見 spec.md 第 15 節與 `supplementary-acceptance.json`。決定為本輪實作的項目，`enforced: true` 與骨架在**同一個 PR** 加入（設計簽核時已決定者為 PR-1）。
+見 spec.md 第 15 節與 `supplementary-acceptance.json`。產品負責人已決定（2026-11-09）Should 需求全部本輪實作、補充驗收全部啟用：6 個項目皆 `enforced: true`，與骨架**同在 PR-1** 加入。啟用後編號檢查共要求 55＋6＝61 個編號；PR-7 的 `--no-skip` 同樣適用於這 6 個。AC-EQ-10 為人工，不列入編號檢查，由測試 agent 在系統測試時執行並記錄。
 
 | 編號 | 層 | 骨架檔案 | 轉實測的 PR |
 |---|---|---|---|
-| AC-PS-5 | E | pause.spec.mjs | PR-6 |
-| AC-PS-8 | E | pause.spec.mjs | PR-6 |
-| AC-RS-4 | E | results.spec.mjs | PR-6 |
-| AC-RS-5 | E | results.spec.mjs | PR-6 |
-| AC-RC-9 | E | records.spec.mjs | PR-6 |
-| NFR-4 | E | layout.spec.mjs | PR-4（版面已含側欄） |
+| 編號 | 層 | 骨架檔案 | 轉實測的 PR | 測試要點 |
+|---|---|---|---|---|
+| AC-PS-5 | E | pause.spec.mjs | PR-6 | 回到前景後推進 3 秒仍暫停、已用時間不變（DQ-2）；選單畫面的反例 |
+| AC-PS-8 | E | pause.spec.mjs | PR-6 | 計時中、翻錯鎖定中、暫停中、尚未開始計時四種情況（DQ-1）；新遊玩不受舊鎖定與標示影響 |
+| AC-RS-4 | E | results.spec.mjs | PR-6 | 優於、相等、較差；尚無紀錄的正例（無紀錄關卡、單項為 null、整份作廢）與反例（他關無紀錄、第二次勝利）（RS-4 v1.1） |
+| AC-RS-5 | E | results.spec.mjs | PR-6 | |
+| AC-RC-9 | E | records.spec.mjs | PR-6 | 勝利後選單顯示記憶體紀錄與提示；重新整理後為「—」；儲存可用時不顯示提示（DQ-5） |
+| NFR-4 | E | layout.spec.mjs | PR-4（版面已含側欄） | |
 
 ## 4. 撰寫驗收測試的注意事項
 
 1. **控制時鐘：** `await page.clock.install({ time: 0 }); await page.clock.pauseAt(1000);` 必須在 `page.goto` 之前。之後只用 `runFor(ms)` 推進。`install` 後若不 `pauseAt`，時間仍隨真實時間流動，檢查點會漂移（本次實測）。
 2. **停用按鈕的點擊：** Playwright 視 `aria-disabled="true"` 為停用，`locator.click()` 會等到逾時（本次實測）。驗證「無法使用、點擊無效果」時，先以 `toHaveAttribute('aria-disabled', 'true')` 確認停用樣式，再以 `page.mouse.click(中心 x, 中心 y)` 點擊，最後檢查狀態未改變。
-3. **配對操作：** 找出同一對、找兩張不同牌面的方式依 DQ-7 的決定；決定後由測試 agent 在 `tests/support/` 寫一個共用輔助函式，所有測試只透過它取得配置。
+3. **配對操作：** 找出同一對、找兩張不同牌面，一律透過 `tests/support/` 的配置輔助（spec.md 第 8 節，DQ-7 (b)＋(c)）：`page.goto` 前以 `addInitScript` 記錄 `crypto.getRandomValues` 的全部輸出；每個開始遊玩的操作前讀取記錄長度作為錨點；在 Node.js 以正式的 `random.js`、`deal.js` 從錨點重放。不得讀取背面朝上的牌的任何屬性來推得牌面（正式程式也不提供）；重算與翻開後的 `data-face` 不一致時視為缺陷回報，不得改用其他方式繞過。
 4. **預寫紀錄：** 依 spec.md 9.1 的格式，於 `page.addInitScript` 寫入 `localStorage['memory-game:records']`。
 5. **NFR-6 的量測（不得比需求寬鬆）：**
    - 在 Node.js 端以 `performance.now()` 記錄：點擊第一張牌的指令送出前 t0a 與完成後 t0b；到時間後讀取顯示值的指令前 t1a 與後 t1b。實際經過時間介於 `lo = t1a − t0b` 與 `hi = t1b − t0a` 之間。
@@ -130,3 +132,4 @@ NFR-1 不需要獨立測試（EQ-4 例外），由 playwright.config 的三個 p
 | 0.1 | 2026-11-04 | 初稿 | 設計階段產出 |
 | 0.2 | 2026-11-04 | 轉實測的 PR 依 spec.md 第 14 節調整（AC-LV-1、AC-LV-7、AC-LV-9、AC-HT-1、AC-RS-1～3 移到 PR-4）並加入「轉實測的前提」；`data-face` 相關要點改為「依 DQ-7」；AC-PS-4 改用 `data-shown`／`data-role`；NFR-5、NFR-7 拆範圍；NFR-6 判定改為區間兩端皆在 ±0.2 秒內、區間寬度上限、逾時與獨立 project；AC-EQ-9 註明部署端的 smoke 步驟；補充驗收依 DQ-10 與同 PR 啟用規則 | design-review.md B-1、B-2、M-4、M-5、M-9、M-12、P-6 |
 | 0.3 | 2026-11-04 | NFR-6 刪除區間寬度上限（改為診斷輸出），建議以座標點擊與單一 evaluate 縮短區間 | design-review.md 回歸審查（第 2 輪）N-3 |
+| 0.4 | 2026-11-09 | 「依 DQ-7」改為配置輔助（記錄亂數＋錨點＋正式程式重放，翻開後以 `data-face` 驗證），AC-GP-1、AC-GP-2、AC-GP-4、AC-PS-4 的要點補不洩漏檢查；第 3 節改為 DQ-10 決定全部啟用（61 個編號）並補測試要點，AC-RS-4 含尚無紀錄的正例與反例（需求 v1.1）；依據改為需求 v1.1、spec.md v0.4 | 產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定；需求文件 v1.1 |

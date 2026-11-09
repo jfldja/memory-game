@@ -2,10 +2,10 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.3（依設計審查第 2 輪修訂） |
-| 日期 | 2026-11-04 |
+| 版本 | 0.4（依產品負責人對 DQ-1～DQ-10 的決定修訂） |
+| 日期 | 2026-11-09 |
 | 狀態 | 待產品負責人簽核（EQ-6） |
-| 依據 | docs/requirements.md v1.0；spec.md v0.3；agent-dev-workflow 第 3.1 節（測試分工） |
+| 依據 | docs/requirements.md v1.1；spec.md v0.4；agent-dev-workflow 第 3.1 節（測試分工） |
 
 ---
 
@@ -40,7 +40,7 @@
 
 | 項目 | 內容 |
 |---|---|
-| 要測的行為 | `randomInt(n)` 回傳 0..n−1 的整數；拒絕取樣在 `x ≥ limit` 時重抽 |
+| 要測的行為 | `randomInt(n)` 回傳 0..n−1 的整數；拒絕取樣在 `x ≥ limit` 時重抽；每抽一次（含重抽）恰呼叫一次 `cryptoObj.getRandomValues`，參數為長度 1 的 `Uint32Array`（spec.md 4.3 的 DQ-7 契約） |
 | 邊界 | n＝1（永遠 0）；n＝2³²；以假的 `cryptoObj` 依序回傳 `limit`、`limit−1`，確認第一個被拒絕 |
 | 對應 | GP-2、術語「隨機排列」 |
 | 單元測試 | 上述全部（注入假的 `cryptoObj`） |
@@ -50,7 +50,7 @@
 
 | 項目 | 內容 |
 |---|---|
-| 要測的行為 | 回傳 12 個元素、每個牌面恰 2 次；以固定序列的 `randomInt` 產生預期的 Fisher–Yates 結果；不修改輸入陣列；每次 `deal` 恰依序呼叫 `randomInt(12)`…`randomInt(2)` 共 11 次（spec.md 4.3，DQ-7 選項 (b) 的契約） |
+| 要測的行為 | 回傳 12 個元素、每個牌面恰 2 次；以固定序列的 `randomInt` 產生預期的 Fisher–Yates 結果；不修改輸入陣列；每次 `deal` 恰依序呼叫 `randomInt(12)`…`randomInt(2)` 共 11 次（spec.md 4.3，DQ-7 決定 (b)＋(c) 的契約） |
 | 邊界 | `randomInt` 永遠回傳 0；永遠回傳最大值 |
 | 對應 | GP-1、GP-2；AC-GP-1、AC-GP-2 |
 | 單元測試 | 確定性序列下的排列；輸入不被修改 |
@@ -82,9 +82,9 @@
 
 | 項目 | 內容 |
 |---|---|
-| 要測的行為 | `parseRecords` 的 ok／empty／invalid 判定（spec.md 9.2 每條規則）；格式不符時的處理範圍依 DQ-4 的決定補寫測試（本模組在 PR-5 實作，DQ-4 決定前不寫預設任一選項的測試）；`serializeRecords` 與 `parseRecords` 來回一致；`mergeWin` 的取代、不取代、相等不取代、兩項各自獨立、保存本次 hintsUsed；`newBestTime`／`newFewestMoves` |
-| 邊界 | 非 JSON、`null`、陣列、`schemaVersion` 為 2、缺一關、`tenths` 為小數／負數／等於上限、`hintsUsed` 為 4、`moves` 為 5；相等值；既有為 null |
-| 對應 | RC-1、RC-3、RC-4、RC-8；AC-RC-1、AC-RC-3、AC-RC-8 |
+| 要測的行為 | `parseRecords` 的 ok／empty／invalid 判定（spec.md 9.2 每條規則）；`invalid`、`empty` 時回傳 `emptyRecords()`，**只有一關的一項不符也整份作廢**（DQ-4 選項 (a)），不保留其他關卡的有效項目；`serializeRecords` 與 `parseRecords` 來回一致；`mergeWin` 的取代、不取代、相等不取代、兩項各自獨立、保存本次 hintsUsed；`newBestTime`／`newFewestMoves` 在該項被取代時為 true（既有為 null 或嚴格優於），相等或較差時為 false（RS-4 v1.1，DQ-3），且與 `records` 中該項是否改變一致 |
+| 邊界 | 只有第 3 關 `tenths` 等於上限、其餘皆有效（整份作廢）；`bestTime` 為 null 而 `fewestMoves` 有值（逐項判定新紀錄）；非 JSON、`null`、陣列、`schemaVersion` 為 2、缺一關、`tenths` 為小數／負數／等於上限、`hintsUsed` 為 4、`moves` 為 5；相等值；既有為 null |
+| 對應 | RC-1、RC-3、RC-4、RC-8、RS-4；AC-RC-1、AC-RC-3、AC-RC-8、AC-RS-4 |
 | 單元測試 | 全部 |
 | 驗收測試 | AC-RC-*（E 層） |
 
@@ -96,23 +96,23 @@
 | 邊界 | 存取 `window.localStorage` 本身就丟出例外（部分瀏覽器的隱私模式） |
 | 對應 | RC-6、RC-7、RC-8、RC-9 |
 | 單元測試 | 以假的 storage 物件注入（模組接受可選參數，預設為 `globalThis.localStorage`） |
-| 驗收測試 | AC-RC-6～8、AC-RC-9（E 層） |
+| 驗收測試 | AC-RC-6～8、AC-RC-9（E 層；儲存不可用時的記憶體紀錄屬 app.js，DQ-5） |
 
 ### M8 platform/clock.js、visibility.js
 
 | 項目 | 內容 |
 |---|---|
-| 要測的行為 | `setTimer` 在到期時呼叫一次；提早喚醒時重新排程；`cancel` 後不呼叫；`onHidden` 只在 hidden 時呼叫 |
+| 要測的行為 | `setTimer` 在到期時呼叫一次；提早喚醒時重新排程；`cancel` 後不呼叫；`onHidden` 只在 hidden 時呼叫，回到 visible 時不呼叫任何回呼（DQ-2：回前景維持暫停） |
 | 對應 | NFR-6、PS-5 |
 | 單元測試 | 注入假的 `setTimeout` 與 `now` |
-| 驗收測試 | NFR-6（真實時間）、AC-PS-5（若實作） |
+| 驗收測試 | NFR-6（真實時間）、AC-PS-5（PS-5 本輪實作，DQ-10） |
 
 ### M9 ui/faces.js
 
 | 項目 | 內容 |
 |---|---|
 | 要測的行為 | 18 個牌面 id 與屬性表一致；每個 SVG 字串符合 cards.md 第 2 節轉換規則：不符合正規表示式 `https?://`、`<use`、`clipPath`、`\bid=`、`aria-label`、`<text`；帶 `aria-hidden="true"` 與 `data-role="face"`（牌背為 `data-role="back"`）；字串中不出現任何牌面識別碼（例如 `L3-1`） |
-| 對應 | C-4、C-5、LV-2～4、NFR-7、DQ-7（不論決定為何，SVG 都不帶牌面識別碼） |
+| 對應 | C-4、C-5、LV-2～4、NFR-7、DQ-7（SVG 不帶牌面識別碼；`data-face` 屬於 DOM 層，只在實際渲染牌面時輸出） |
 | 單元測試 | 字串檢查 |
 | 驗收測試 | AC-LV-2～4（比對 id 集合與關卡歸屬）；U-3、U-4 人工 |
 
@@ -120,7 +120,7 @@
 
 | 項目 | 內容 |
 |---|---|
-| 要測的行為 | 畫面路由；DOM 測試介面（spec.md 4.11）的屬性與 GameView 一致（含 `data-shown`）；停用按鈕使用 `aria-disabled`；離開遊戲時取消計時器；勝利時保存紀錄一次 |
+| 要測的行為 | 畫面路由；DOM 測試介面（spec.md 4.11）的屬性與 GameView 一致（含 `data-shown`；`data-face` 只在 `data-shown=face` 時存在，DQ-7）；停用按鈕使用 `aria-disabled`；離開遊戲與重新開始時取消計時器（DQ-1）；勝利時保存紀錄一次；開始遊玩的處理器第一個消耗亂數的是 `deal`（spec.md 4.3）；儲存不可用時以記憶體紀錄為準（spec.md 9.4，DQ-5） |
 | 對應 | 全部畫面相關需求 |
 | 單元測試 | 不要求（需要 DOM）。實作 agent 不撰寫端對端測試；畫面行為由測試 agent 的 E 層驗收涵蓋（spec.md 12.3）。可測的純函式（例如由 GameView 計算屬性值）放在 ui 層的獨立模組，以 `node --test` 測試 |
 | 驗收測試 | E 層全部 |
@@ -250,3 +250,4 @@
 | 0.1 | 2026-11-04 | 初稿 | 設計階段產出 |
 | 0.2 | 2026-11-04 | 單元測試以 glob 執行；M3 加入亂數呼叫次數契約；M5 加入顯示值上限與鎖定中失敗的邊界、I-2 適用範圍；M9 依 cards.md 轉換規則改寫禁止清單；M10 移除實作 agent 的端對端 smoke 選項；M12 邊界補略過寫法、多位作者、R-14；3.3 寫明腳本核對方式與結果 | design-review.md M-1、M-2、M-10、M-11、P-11 |
 | 0.3 | 2026-11-04 | M6 註明格式不符的處理範圍依 DQ-4、於 PR-5 實作 | design-review.md 回歸審查（第 2 輪）N-9 |
+| 0.4 | 2026-11-09 | M2 加入每抽一次呼叫一次 `getRandomValues` 的契約；M3、M9、M10 改為 DQ-7 決定 (b)＋(c)；M6 改為整份作廢（DQ-4）並補 `newBestTime`／`newFewestMoves` 的尚無紀錄規則與邊界（DQ-3、需求 v1.1）；M7、M10 補記憶體紀錄（DQ-5）；M8 補回前景不呼叫（DQ-2）、AC-PS-5 改為本輪實作；M10 補重新開始時取消計時器（DQ-1）；依據改為需求 v1.1 | 產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定；需求文件 v1.1 |

@@ -2,9 +2,9 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.2（依設計審查 design-review.md 修訂） |
-| 日期 | 2026-11-04 |
-| 依據 | 需求 EQ-5、EQ-11、AC-EQ-5、AC-EQ-11；docs/workflow.md W-1、第 4.4 節；agent-dev-workflow 第 3 節、第 3.2 節 |
+| 版本 | 0.4（依產品負責人對 DQ-6、DQ-8 的決定修訂；版本號與設計文件組對齊，跳過 0.3） |
+| 日期 | 2026-11-09 |
+| 依據 | 需求文件 v1.1 的 EQ-5、EQ-11、AC-EQ-5、AC-EQ-11；docs/workflow.md W-1、第 4.4 節；agent-dev-workflow 第 3 節、第 3.2 節 |
 | 使用者 | 審查 agent（撰寫紀錄）、`scripts/review-gate.mjs`（判定）、產品負責人（AC-EQ-5 抽查） |
 
 ---
@@ -29,8 +29,8 @@
 - 審查者：審查 agent，工作階段 review-2026-11-05-pr2-a
 - 作者：實作 agent，工作階段 impl-2026-11-05-pr2；測試 agent，工作階段 test-2026-11-05-pr2（照抄 PR 說明「## 作者」段落的全部工作階段）
 - 獨立性：審查者與作者為同一模型（Claude）的不同工作階段（docs/workflow.md W-1）。審查者以全新上下文啟動，未讀作者的推理過程
-- 審查依據：需求文件 v1.0；軟體規格書 v<版本>；審查清單 v0.2
-- 已載入 skill：agent-dev-workflow <版本>；software-design-phase <版本>；requirements-spec 無版本號（DQ-6 關閉前）
+- 審查依據：需求文件 v<版本>；軟體規格書 v<版本>；審查清單 v<版本>
+- 已載入 skill：agent-dev-workflow <版本>；software-design-phase <版本>；requirements-spec <版本>（版本庫內的 requirements-spec 副本尚無變更紀錄時填「無版本號」；產品負責人的同步 PR 合併後改填版本號，DQ-6、spec.md 12.4）
 
 ### 逐項結果
 
@@ -109,7 +109,7 @@
 - CI 只能確認紀錄存在且格式正確，無法確認審查真的做過（需求第 9 節已接受）。產品負責人在 UAT 前抽看（AC-EQ-5）。
 - 工作階段識別由 agent 自行填寫，CI 無法驗證真偽。
 - 有寫入權限者可以直接以 API 寫入 `review-record` 狀態；分支保護指定來源為 GitHub Actions 可擋下以個人權杖寫入的狀態。
-- 第一個 PR（加入本機制的 PR）不受本檢查把關，由產品負責人人工確認；`review-record` 在 PR-2 寫入過一次後才能加為必要檢查（spec.md 12.6 步驟 4、6b；DQ-8）。
+- 第一個 PR（加入本機制的 PR）不受本檢查把關，由產品負責人人工確認；`review-record` 在 PR-2 寫入過一次後才能加為必要檢查（spec.md 12.6 步驟 4、6b；DQ-8 已由產品負責人接受，處理方式見 spec.md 12.6「EQ-2 啟動例外的處理」）。
 
 ## 6. 變更紀錄
 
@@ -117,3 +117,4 @@
 |---|---|---|---|
 | 0.1 | 2026-11-04 | 初稿 | 設計階段產出 |
 | 0.2 | 2026-11-04 | 新增 R-14（CI 與檢查規則變更）；R-9 改用正規表示式並檢查 `aria-label`；多位作者的解析規則；工作流程注入防護與並行群組；判定清單改為 R-1～R-14；啟動例外改指向 DQ-8 | design-review.md M-6、M-7、M-8、M-11、P-5 |
+| 0.4 | 2026-11-09 | 紀錄範例的需求與 skill 版本改為佔位，寫明 requirements-spec 在副本同步前後的填法（DQ-6）；啟動例外改為已接受（DQ-8）；依據改為需求 v1.1 | 產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定；需求文件 v1.1 |
