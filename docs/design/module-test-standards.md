@@ -2,10 +2,10 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.4（依產品負責人對 DQ-1～DQ-10 的決定修訂） |
+| 版本 | 0.5（M12 的檢查腳本邊界依 spec.md v0.5 修訂；新增執行結果檢查） |
 | 日期 | 2026-11-09 |
-| 狀態 | 待產品負責人簽核（EQ-6） |
-| 依據 | docs/requirements.md v1.1；spec.md v0.4；agent-dev-workflow 第 3.1 節（測試分工） |
+| 狀態 | v0.4 已簽核（2026-11-09 16:12）；v0.5 待產品負責人簽核（EQ-6） |
+| 依據 | docs/requirements.md v1.1；spec.md v0.5；agent-dev-workflow 第 3.1 節（測試分工）；PR #1 審查紀錄 N-1、N-2 |
 
 ---
 
@@ -16,9 +16,10 @@
 | 模組單元測試 | `tests/unit/**/*.test.mjs` | 實作 agent | `node --test`（glob），CI `unit` | 驗收標準以外、模組內部行為與邊界（本文件第 2 節「單元測試」欄） |
 | 驗收測試：無瀏覽器層 | `tests/acceptance/unit/**/*.test.mjs` | 測試 agent | `node --test`（glob），CI `unit` | 直接對應驗收編號、可不經畫面驗證者（acceptance-test-plan.md 的 U 層） |
 | 驗收測試：端對端層 | `tests/acceptance/e2e/` | 測試 agent | Playwright 三引擎，CI `e2e (*)` | 其餘驗收編號與 NFR |
-| 編號覆蓋檢查 | `scripts/check-acceptance-ids.mjs` | 實作 agent（腳本）；測試 agent（AC-EQ-4 測試） | CI `acceptance-ids` | EQ-4 |
+| 編號覆蓋檢查 | `scripts/check-acceptance-ids.mjs` | 實作 agent（腳本）；測試 agent（AC-EQ-4 測試） | CI `acceptance-ids` | EQ-4；只採計 `tests/acceptance/`（spec.md 12.2 v0.5） |
+| 執行結果檢查 | `scripts/check-acceptance-results.mjs`、`scripts/acceptance-reporter.mjs` | 實作 agent | CI `unit`、`e2e (*)` 的最後一步 | 驗收測試沒有非骨架的略過、預期失敗或未執行（spec.md 12.2.1）；PR-7 起沒有任何略過 |
 
-**分界原則：** 測試名稱含驗收或 NFR 編號、判定「是否符合需求」的，是驗收測試，只由測試 agent 撰寫與修改。實作 agent 的單元測試**不得**以驗收編號命名（避免讓編號覆蓋檢查誤以為驗收已存在），可在說明中引用設計編號（例如 `T-5`、`I-2`）。
+**分界原則：** 測試名稱含驗收或 NFR 編號、判定「是否符合需求」的，是驗收測試，只由測試 agent 撰寫與修改。實作 agent 的單元測試**不得**以驗收編號命名（避免讓編號覆蓋檢查誤以為驗收已存在），可在說明中引用設計編號（例如 `T-5`、`I-2`）。v0.5 起由檢查強制：`tests/unit/` 的測試名稱不採計為覆蓋，且含必要編號即讓 `acceptance-ids` 失敗（spec.md 12.2 第 3、5 點）。
 
 **涵蓋原則（測試金字塔）：** 狀態機的組合與邊界以單元測試窮舉（快、確定）；端對端只驗證需求的觀察點與畫面整合。
 
@@ -134,12 +135,12 @@
 | 單元測試 | 把版本字串計算寫成純函式測試；建置到暫存目錄後檢查檔案清單 |
 | 驗收測試 | AC-EQ-9（E 層）；部署後 `smoke` |
 
-### M12 CI 腳本（check-acceptance-ids、check-pr-body、review-gate）
+### M12 CI 腳本（check-acceptance-ids、check-acceptance-results、acceptance-reporter、check-pr-body、review-gate）
 
 | 項目 | 內容 |
 |---|---|
-| 要測的行為 | 見 spec.md 12.2、12.4、review-process.md 第 4 節。每支腳本的判定邏輯為純函式 |
-| 邊界 | check-acceptance-ids：`AC-GP-1` 與 `AC-GP-10` 不互相誤判；編號只在註解中出現不算；一個標題含多個編號；spec.md 12.2 第 5 點全部略過寫法（含略過的 `describe` 內的測試）都計入略過。check-pr-body：未勾選、版本號不符、缺段落、skill 不存在、「無版本號」的過渡規則、多位作者。review-gate：無紀錄、SHA 為舊 commit、SHA 為短碼、非協作者評論、審查者工作階段等於任一位作者、缺 W-1 註明、清單缺 R-1～R-14 任一項、含「不通過」卻寫 APPROVED、多則紀錄以最後一則為準 |
+| 要測的行為 | 見 spec.md 12.2、12.2.1、12.4、review-process.md 第 4 節。每支腳本的判定邏輯為純函式 |
+| 邊界 | check-acceptance-ids：`AC-GP-1` 與 `AC-GP-10` 不互相誤判；編號只在註解中出現不算；一個標題含多個編號。v0.5（spec.md 12.2）：只在 `tests/unit/` 出現的編號判為缺少；`tests/unit/` 名稱含必要編號時失敗、名稱含非必要編號（例 `NFR-1`、虛構編號）時不失敗；`tests/acceptance/` 下位置或副檔名不符的測試檔失敗；骨架宣告 `test.skip(名稱, 函式)` 計為略過且無 `--no-skip` 時通過；骨架宣告寫在 `describe` 內、第一個參數不是字串字面值時不算骨架；第 8 點每一種其他寫法（宣告變體、本體內呼叫、條件略過、選項物件、`annotation` 物件與陣列、`expectFailure`、計算屬性 `['skip']`、`.only`）各一個案例判定失敗；`assert.fail` 與字串資料中的 `test.skip(` 不誤判；`--no-skip` 時 `tests/unit/` 的略過仍失敗。check-acceptance-results（spec.md 12.2.1）：以本次實測的兩種結果格式為測試資料（node:test reporter 的 JSON 行、Playwright json）；通過；骨架略過（無 `--no-skip` 通過、有則失敗）；非骨架略過（node `skip`／`todo`、Playwright `expectedStatus: skipped`）失敗；Playwright `test.fail` 的 `expectedStatus: failed`／`status: expected` 失敗（不得只看 `stats`）；任一 `results[].status` 不是 `passed` 失敗；靜態有、結果沒有的測試失敗（含 node 略過區塊內的測試、整個檔案沒有結果）；樣板名稱以前綴比對；`describe` 名稱以外層路徑比對；e2e 兩個結果檔合併（realtime 專用檔只出現在其中一個）；`--no-skip` 時必要編號沒有通過結果即失敗。check-pr-body：未勾選、版本號不符、缺段落、skill 不存在、「無版本號」的過渡規則、多位作者。review-gate：無紀錄、SHA 為舊 commit、SHA 為短碼、非協作者評論、審查者工作階段等於任一位作者、缺 W-1 註明、清單缺 R-1～R-14 任一項、含「不通過」卻寫 APPROVED、多則紀錄以最後一則為準。v0.5（review-process.md 第 4 節）：同一 R 編號兩列（先不通過後通過、先通過後不通過、兩列都通過）皆失敗「審查清單重複」；清單以外的列（例 R-15）為不通過時失敗；結果欄為三值以外（例「通過？」「OK」）時失敗；「不適用」說明空白時失敗；審查者 `IMPL-1` 對作者 `impl-1`、全形 `ｉｍｐｌ－１` 對 `impl-1`、前後空白不同時都判為相同；較晚一則合法紀錄可取代較早一則重複而無效的紀錄 |
 | 對應 | EQ-4、EQ-5、EQ-11、workflow.md 4.4；AC-EQ-4 |
 | 單元測試 | check-pr-body、review-gate、check-acceptance-ids 的內部函式（實作 agent） |
 | 驗收測試 | AC-EQ-4（U 層，測試 agent）；AC-EQ-11、AC-EQ-2 由產品負責人人工驗收 |
@@ -150,7 +151,8 @@
 |---|---|
 | 要測的行為 | 三引擎矩陣、必要檢查名稱、權限宣告、部署後 smoke |
 | 對應 | EQ-1、EQ-2、EQ-3、EQ-11、EQ-12、NFR-1 |
-| 驗證 | 人工（AC-EQ-1、AC-EQ-2、AC-EQ-3、AC-EQ-11、AC-EQ-12），由產品負責人依 spec.md 12.6 步驟 8 執行 |
+| 驗證 | 人工（AC-EQ-1、AC-EQ-2、AC-EQ-3、AC-EQ-11、AC-EQ-12），由產品負責人依 spec.md 12.6 步驟 8 執行；AC-EQ-11 與 AC-EQ-2 的合併被拒在 PR-1b 執行（v0.5） |
+| v0.5 補充 | e2e job 的 `BUILD_SHA` 為 job 層級，建置與兩個 Playwright 步驟都取得同一個值；`unit` 與 `e2e` job 含執行結果檢查步驟；job 名稱不變（spec.md 12.1）。PR-1 已有的工作流程單元測試（`tests/unit/workflows.test.mjs`）依此補充 |
 
 ---
 
@@ -251,3 +253,4 @@
 | 0.2 | 2026-11-04 | 單元測試以 glob 執行；M3 加入亂數呼叫次數契約；M5 加入顯示值上限與鎖定中失敗的邊界、I-2 適用範圍；M9 依 cards.md 轉換規則改寫禁止清單；M10 移除實作 agent 的端對端 smoke 選項；M12 邊界補略過寫法、多位作者、R-14；3.3 寫明腳本核對方式與結果 | design-review.md M-1、M-2、M-10、M-11、P-11 |
 | 0.3 | 2026-11-04 | M6 註明格式不符的處理範圍依 DQ-4、於 PR-5 實作 | design-review.md 回歸審查（第 2 輪）N-9 |
 | 0.4 | 2026-11-09 | M2 加入每抽一次呼叫一次 `getRandomValues` 的契約；M3、M9、M10 改為 DQ-7 決定 (b)＋(c)；M6 改為整份作廢（DQ-4）並補 `newBestTime`／`newFewestMoves` 的尚無紀錄規則與邊界（DQ-3、需求 v1.1）；M7、M10 補記憶體紀錄（DQ-5）；M8 補回前景不呼叫（DQ-2）、AC-PS-5 改為本輪實作；M10 補重新開始時取消計時器（DQ-1）；依據改為需求 v1.1 | 產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定；需求文件 v1.1 |
+| 0.5 | 2026-11-09 | 第 1 節新增執行結果檢查一列、單元測試不得帶編號改為檢查強制；M12 依 spec.md 12.2、12.2.1 v0.5 與 review-process.md 第 4 節 v0.5 補邊界；M13 補 PR-1b 的人工驗證與 CI 變更 | PR-1 審查紀錄 N-1、N-2、N-6；實作與測試 agent 回報 |

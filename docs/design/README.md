@@ -2,40 +2,39 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.4（依產品負責人對 DQ-1～DQ-10 的決定修訂） |
+| 版本 | 0.5（PR-1 審查 N-1～N-6 與實作、測試 agent 回報的修正；新增 PR-1b） |
 | 日期 | 2026-11-09 |
-| 狀態 | 已簽核（2026-11-09 16:12，產品負責人，見第 5 節）。待決問題 DQ-1～DQ-10 已全部關閉 |
-| 依據 | docs/requirements.md v1.1（已簽核）；docs/workflow.md v0.1；docs/design/design-review.md（設計審查紀錄）；產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定 |
+| 狀態 | v0.4 已簽核（2026-11-09 16:12，產品負責人，見第 5 節）；**v0.5 待簽核**。DQ-1～DQ-10 已關閉；DQ-11、DQ-12 待決定 |
+| 依據 | docs/requirements.md v1.1（已簽核）；docs/workflow.md v0.2；docs/design/design-review.md（設計審查紀錄）；產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定；PR #1 審查紀錄（N-1～N-6）與實作、測試 agent 的回報 |
 | 撰寫 | 設計 agent（agent-dev-workflow 第 3 節「設計 agent」） |
 
 ## 0. 上工檢查與已載入 skill（workflow.md 第 4.4 節）
 
-**上工檢查（agent-dev-workflow 第 1 節）：**
+**v0.5 修訂（設計 agent，工作階段 designer-pr1b-20261109，branch `pr-1b/pre-pr2-fixes`，基於 main 7707e9f）：**
 
-- [x] 角色：設計 agent。負責規格書、模組劃分、模組測試標準與其他設計產出；不撰寫正式程式碼、不自行決定需求沒寫的行為、不修改需求文件與產品負責人維護的 skill。
-- [x] 階段：階段 2 設計（M2）；離開條件為產品負責人簽核（EQ-6）。
-- [x] 輸入：需求文件 v1.1 已簽核（2026-11-09 16:02，RS-4 依 DQ-3 修訂；commit 10e44a3）；workflow.md v0.1；設計審查紀錄 design-review.md；產品負責人對 DQ-1～DQ-10 的決定（v0.4 修訂的輸入）。
-- [x] 已讀需求文件全文。
-- [x] 已讀 workflow.md，知道 W-1～W-3 與第 4～6 節的調整。
-- [x] 已載入本階段 skill：agent-dev-workflow、requirements-spec（第 3.8 節）、software-design-phase。
+- [x] 角色：設計 agent。只修訂設計文件與設計 skill；不撰寫程式碼與測試、不修改需求文件與產品負責人維護的 skill（agent-dev-workflow、requirements-spec）。
+- [x] 階段：階段 3（M3）進行中，PR-2 之前；依 agent-dev-workflow 5.1 回到設計階段修正 PR-1 發現的設計問題，離開條件為產品負責人簽核 v0.5。
+- [x] 輸入：需求文件 v1.1（已簽核）；workflow.md v0.2；設計文件 v0.4（已簽核 2026-11-09 16:12）；PR #1 審查紀錄（`gh api …/issues/1/comments`，2026-11-09 08:41）；統籌 agent 轉述的實作與測試 agent 回報；main 7707e9f 的程式碼與工作流程。
+- [x] 已讀需求文件全文、workflow.md、docs/design/ 全部。
+- [x] 已載入 skill：agent-dev-workflow、software-design-phase、requirements-spec（第 3.8 節）。
 
-**已載入 skill 的變更紀錄最新版本號：**
+| skill | 載入時版本 | 本次修訂後 |
+|---|---|---|
+| agent-dev-workflow | 1.1 | 1.1（未修改；產品負責人維護） |
+| requirements-spec | 1.1 | 1.1（未修改；產品負責人維護） |
+| software-design-phase | 1.3 | 1.4（本次修訂，見其變更紀錄） |
 
-| skill | 版本 |
-|---|---|
-| agent-dev-workflow | 1.0（版本庫副本；產品負責人將納入建議修改成為 1.1，副本由另一個 PR 同步，同步後改填版本號） |
-| requirements-spec | 無版本號（版本庫副本尚無變更紀錄；產品負責人將加上變更紀錄成為 1.1，同步後改填版本號，DQ-6） |
-| software-design-phase | 1.3（本次修訂） |
+v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 
 ## 1. 文件清單
 
 | 檔案 | 版本 | 內容 |
 |---|---|---|
-| verification.md | 0.4 | Q4（開發工具授權）、Q6（GitHub Actions／Pages、分支保護、EQ-11 可行性、部署延遲）查證紀錄，附官方網址 |
-| spec.md | 0.4 | 軟體規格書：架構、檔案結構、模組介面、狀態機、計時、時鐘抽象、隨機排列、紀錄儲存、畫面與版面計算、版本號、CI／CD、PR 切分、Should 需求建議、待決問題、假設 |
-| module-test-standards.md | 0.4 | 各模組測試標準、單元測試與驗收測試分界、Must 需求追溯（以腳本核對） |
-| acceptance-test-plan.md | 0.4 | 驗收測試骨架計畫（55 個必要編號＋6 個已啟用的補充驗收、層次、轉實測的 PR、撰寫注意事項） |
-| review-process.md | 0.4 | 審查紀錄格式、審查清單 R-1～R-14、審查檢查判定規則與工作流程安全設定 |
+| verification.md | 0.5 | Q4（開發工具授權）、Q6（GitHub Actions／Pages、分支保護、EQ-11 可行性、部署延遲）查證紀錄，附官方網址 |
+| spec.md | 0.5 | 軟體規格書：架構、檔案結構、模組介面、狀態機、計時、時鐘抽象、隨機排列、紀錄儲存、畫面與版面計算、版本號、CI／CD、PR 切分、Should 需求建議、待決問題、假設 |
+| module-test-standards.md | 0.5 | 各模組測試標準、單元測試與驗收測試分界、Must 需求追溯（以腳本核對） |
+| acceptance-test-plan.md | 0.5 | 驗收測試骨架計畫（55 個必要編號＋6 個已啟用的補充驗收、層次、轉實測的 PR、撰寫注意事項） |
+| review-process.md | 0.5 | 審查紀錄格式、審查清單 R-1～R-14、審查檢查判定規則與工作流程安全設定 |
 | supplementary-acceptance.json | 0.4 | Should 需求的設計補充驗收編號（DQ-10 決定全部啟用，`enforced: true`，隨 PR-1 生效） |
 | cards.md | 0.4 | 牌面屬性表、繪製與轉換規則、第 3 關可分辨性的依據 |
 | card-attributes.json | schemaVersion 1（內容 v0.2：細節鍵名改為方向文字） | 機器可讀牌面屬性表（AC-LV-2～4 讀取） |
@@ -43,11 +42,19 @@
 | card-preview.png、card-preview-min-size.png、card-preview-360.png | v0.2 | 預覽頁截圖（本機 Chromium；最小尺寸模擬為 108×108） |
 | design-review.md | — | 設計審查紀錄（審查 agent 撰寫，設計 agent 不修改） |
 
-可重用設計 skill：`.claude/skills/software-design-phase/SKILL.md`（1.3）。
+可重用設計 skill：`.claude/skills/software-design-phase/SKILL.md`（1.4）。
 
-版本號說明：v0.4 起設計文件組的受影響文件統一為 0.4（verification.md、review-process.md、cards.md、supplementary-acceptance.json 由 0.2 直接升為 0.4）。card-attributes.json、card-preview.html 與截圖內容未變更，維持 v0.2。
+版本號說明：v0.4 起設計文件組的受影響文件統一為 0.4（verification.md、review-process.md、cards.md、supplementary-acceptance.json 由 0.2 直接升為 0.4）。v0.5 只升受影響的文件（本文件、spec.md、module-test-standards.md、acceptance-test-plan.md、review-process.md、verification.md）；cards.md、supplementary-acceptance.json 維持 0.4，card-attributes.json、card-preview.html 與截圖維持 v0.2。
 
 ## 2. 需要產品負責人決定的事項
+
+**v0.5（PR-1b 開啟前）：**
+
+1. 簽核 v0.5（EQ-6），在第 5 節「v0.5 待簽核」一列填入日期。PR-1b 的實作與測試 commit 須在簽核之後。
+2. 決定 DQ-11（review-gate 第一次執行無法寫入狀態時的處理；建議 (a)）、DQ-12（以 `review-record` 失敗驗證 AC-EQ-2 的合併被拒；建議 (a)）。
+3. 確認 spec.md 12.6 的 PR-1b 程序：6b 與步驟 8 改在 PR-1b；PR-1b 合併前人工確認其最後一則審查紀錄沒有重複的 R 列、審查者與作者的工作階段忽略大小寫後不同（PR-1b 由舊版 review-gate 判定）。
+
+**v0.4（已完成）：**
 
 1. 簽核本設計（EQ-6），在第 5 節留下日期與版本。
 2. 關閉 Q4、Q6（verification.md 第 3 節）。
@@ -55,9 +62,9 @@
 4. 牌面草稿的美觀度與第 3 關難度（cards.md 第 4 節）。
 5. 假設 DA-1、DA-2、DA-3、DA-5（spec.md 第 17 節）。
 
-## 3. 待決問題（已全部關閉）
+## 3. 待決問題（DQ-1～DQ-10 已關閉；DQ-11、DQ-12 待決定）
 
-產品負責人於 **2026-11-09 16:02** 決定：DQ-1～DQ-10 全部採用建議。詳細內容與寫入的章節見 spec.md 第 16 節「狀態與決定」欄。
+產品負責人於 **2026-11-09 16:02** 決定：DQ-1～DQ-10 全部採用建議。DQ-11、DQ-12 為 v0.5 新增，詳細選項見 spec.md 第 16 節。詳細內容與寫入的章節見 spec.md 第 16 節「狀態與決定」欄。
 
 | 編號 | 問題 | 決定（2026-11-09） | 寫入的設計 | 狀態 |
 |---|---|---|---|---|
@@ -66,11 +73,13 @@
 | DQ-3 | 尚無紀錄時是否標示「新紀錄」 | 標示；統籌 agent 已把需求升為 v1.1（RS-4） | spec.md 4.6、4.11；AC-RS-4 補尚無紀錄的正例與反例；M6 | 已關閉 |
 | DQ-4 | 紀錄格式不符時整份、逐項或整份＋備份作廢 | (a) 整份作廢；接受下次勝利覆寫整份、其他關卡原資料永久遺失 | spec.md 4.6、9.2、9.3；M6 | 已關閉 |
 | DQ-5 | 儲存不可用時是否在選單顯示本次勝利 | 顯示（只存在記憶體），保留「紀錄無法保存」提示 | spec.md 9.3、9.4、10.3；AC-RC-9；M7、M10 | 已關閉 |
-| DQ-6 | requirements-spec 沒有版本號 | 產品負責人為 requirements-spec 加變更紀錄（將為 1.1），並把建議修改納入 agent-dev-workflow（將為 1.1）；副本由另一個 PR 同步。同步前填「無版本號」，同步後改填版本號 | spec.md 12.4；review-process.md 第 2 節 | 已關閉（產品負責人的 skill 更新與副本同步尚待執行） |
+| DQ-6 | requirements-spec 沒有版本號 | 產品負責人為 requirements-spec 加變更紀錄（將為 1.1），並把建議修改納入 agent-dev-workflow（將為 1.1）；副本由另一個 PR 同步。同步前填「無版本號」，同步後改填版本號 | spec.md 12.4；review-process.md 第 2 節 | 已關閉；副本同步實際已隨 PR-1 合併（commit 40725e0），兩個 skill 皆為 1.1，過渡規則已結束（v0.5 更新） |
 | DQ-7 | 測試如何得知牌面配置（`data-face` 會洩漏答案） | (b)＋(c)：測試記錄亂數、以錨點與正式程式重放；`data-face` 只在實際渲染牌面時存在 | spec.md 4.3、4.5、4.11、第 8 節；acceptance-test-plan.md；M2、M3、M10 | 已關閉 |
 | DQ-8 | EQ-2 的啟動例外 | 接受 (1) 初始 commit 直接推送、(2) PR-1 先於保護合併；設計文件隨 PR-1 合併，不發生 (3)；產品負責人在 UAT 紀錄或 release notes 註明 | spec.md 12.6「EQ-2 啟動例外的處理」；verification.md 2.2、2.3；review-process.md 第 5 節 | 已關閉 |
 | DQ-9 | EQ-12 無餘裕，GitHub 延遲時如何處理 | `smoke` 失敗重跑一次並記錄；仍逾時記為外部觀察，由產品負責人判定，不改程式 | spec.md 12.5；verification.md 2.4 | 已關閉 |
 | DQ-10 | Should 需求本輪範圍與補充驗收 | 全部本輪實作；補充驗收全部啟用，`enforced: true` 與骨架隨 PR-1 | spec.md 第 14、15 節；supplementary-acceptance.json；acceptance-test-plan.md 第 3 節 | 已關閉 |
+| DQ-11 | review-gate 在 PR-1b 第一次執行就無法寫入 `review-record` 時如何處理（修正 PR 必然不經它把關） | 待決定；建議 (a) 只限該修正 PR 接受為啟動例外，其他必要檢查仍須通過、審查紀錄人工確認，合併後下一個 PR 重做 6b 與步驟 8 | spec.md 第 16 節、12.6 | 待決定（PR-1b 開啟前） |
+| DQ-12 | AC-EQ-2「CI 失敗的 PR 合併被拒」可否以 PR-1b 上 `review-record` 失敗驗證 | 待決定；建議 (a) 可以（EQ-11 規定審查檢查屬 CI） | spec.md 第 16 節、12.6 步驟 8 | 待決定（PR-1b 開啟前） |
 
 ## 4. 修訂紀錄
 
@@ -159,11 +168,37 @@
 - **PR 切分：** PR-6 的 Given／When 所需畫面（遊戲、暫停、紀錄）在 PR-4、PR-5 已存在；PR-6 加入第 4 個按鈕與「挑戰下一個難度」後，NFR-3、NFR-4、NFR-5 遊戲畫面與結果畫面仍成立（10.2：80×48；10.3：結果畫面 316 ≤ 636、選單含提示 540 ≤ 636）。配置輔助移到 PR-4 後，PR-1 不再引用不存在的模組。
 - **腳本重新核對（對需求文件 v1.1）：** 必要編號 55 對 55（51 個含「自動」的驗收＋NFR-3、5、6、7），缺 0、多 0；Must 追溯 68 對 68，缺 0、多 0；`supplementary-acceptance.json` 6 項皆 `enforced: true`。
 
+### 第 4 輪（v0.4 → v0.5，對應 PR-1 審查紀錄與實作、測試 agent 回報）
+
+| 來源 | 處理 | 修改的檔案與章節 |
+|---|---|---|
+| 掃描範圍含 `tests/unit/`（PR-1 說明已知問題 2、審查 N-2） | 採計覆蓋的範圍限定為 `tests/acceptance/`；單元測試名稱含必要編號即失敗（兩者並用）；驗收測試檔位置限定；`--no-skip` 對 `tests/unit/` 的略過檢查維持 | spec.md 12.2 第 3～5、10 點；module-test-standards.md 第 1 節、M12；acceptance-test-plan.md 第 1 節、#50；review-process.md R-6、R-14 |
+| 略過偵測不完整（PR-1 說明已知問題 1、審查 N-2） | 驗收測試只允許骨架宣告；其他寫法（本體內 `test.skip()`／`test.fixme()`／`test.fail()`／`t.skip()`、條件略過、`annotation`、`expectFailure`、計算屬性、`.only`）由靜態檢查一律判定失敗；寫明靜態偵測的界限；新增 12.2.1 以執行結果判定略過、預期失敗與沒有執行（本機實測兩種執行器的結果格式），PR-1b 啟用、PR-7 加 `--no-skip` | spec.md 12.1、12.2 第 8、9 點、12.2.1、12.3、第 3、14 節；verification.md 2.6；module-test-standards.md M12；acceptance-test-plan.md 第 1、4 節 |
+| N-1（重複 R 列、大小寫） | 同一 R 編號重複時整則無效；結果欄只接受三值，「不適用」須有說明；任一列不通過即失敗；工作階段識別去除空白、NFKC、小寫後比對，建議一律小寫 | review-process.md 第 2、4 節；spec.md 第 13 節；module-test-standards.md M12 |
+| N-6、已知問題 3（e2e 未傳 `BUILD_SHA`） | 判斷需要修正：測試步驟沒有 `BUILD_SHA` 時，CI 中沒有任何檢查確認受測建置顯示 PR head。改為 job 層級 `env`；AC-EQ-9 在 CI 缺少 `BUILD_SHA` 即失敗 | spec.md 第 11 節、12.1；acceptance-test-plan.md #51 |
+| N-3（同步 PR 描述過時） | 改為副本已隨 PR-1 合併（commit 40725e0）、過渡規則已結束 | spec.md 12.4、DQ-6 註記；review-process.md 第 2 節；本文件第 3 節 DQ-6 |
+| N-6、已知問題 4（第 3 節表頭重複） | 刪除重複的表頭列 | acceptance-test-plan.md 第 3 節 |
+| N-4(a)（作者段落） | 多角色 PR 列出每個角色的工作階段；R-1 檢查 | spec.md 12.4；review-process.md 第 1 節、R-1 |
+| agent-dev-workflow 1.1 第 4.3 節 | 新增 PR-1b；6b 與步驟 8（AC-EQ-11、AC-EQ-2 合併被拒）改到 PR-1b；記錄 6a 已完成（API 讀取）；確認 review-gate 在 main、PR-1b 會觸發；寫明 PR-1b 由舊版 review-gate 判定與人工確認；新增 DQ-11、DQ-12 | spec.md 12.6、第 14、16 節；review-process.md 第 5 節；verification.md 2.3、2.5、2.6 |
+| 不屬設計範圍（未修改） | N-4(b) workflow.md 狀態欄、N-4(c) 需求文件日期、N-5 PR 說明的 skill 列：屬統籌 agent 與產品負責人維護的文件或 PR 說明 | — |
+
+**回歸檢查（requirements-spec 3.8、6.2 與 software-design-phase 第 9 節、3.4.1）：**
+
+- **產品行為：** 本輪只改 CI、檢查腳本、審查流程與 PR 順序，沒有改動狀態機、畫面、DOM 測試介面或儲存格式；spec.md 第 4～10 節、5.5、5.6、5.7 逐格不受影響。
+- **驗收沒有放寬：** 採計範圍限定只排除單元測試，驗收測試目錄完整掃描；`--no-skip` 對 `tests/unit/` 維持；新增的靜態規則與執行結果檢查只增加失敗條件；AC-EQ-9 由「CI 只檢查格式」改為「CI 必須比對 commit」。R-14 的「縮小掃描範圍」已註明本次調整不屬於放寬。
+- **既有骨架與規則的相容性：** 以 `grep` 確認 `tests/acceptance/` 現有 77 個測試呼叫皆為 `test(`（10 個）或最上層 `test.skip(名稱, 函式)`（67 個），符合唯一允許的骨架寫法；`tests/unit/` 的測試名稱只含非必要編號（`NFR-1`、虛構的 `AC-ZZ-*`），不觸發第 5 點。AC-EQ-4 測試中「略過寫法可通過編號檢查」的案例需由測試 agent 依 v0.5 改寫（非骨架寫法改為失敗），這是設計變更造成的驗收測試修改，理由與編號寫在 PR-1b。
+- **審查判定與既有紀錄：** PR-1 的審查紀錄（每列一次、結果皆為「通過」或「不適用」且附說明、工作階段皆小寫）在 v0.5 規則下仍判定 success。
+- **PR 切分：** PR-1b 不需要新畫面；AC-EQ-11 的 Given 由 PR-1b 本身提供，前提（review-gate 在 main、6b 完成）已確認或排入程序；PR-2～PR-7 的內容與 Given／When 不變，PR-7 的 `--no-skip` 擴及執行結果檢查。job 名稱不變，6a 的必要檢查不需重設。
+- **決定之間的交互：** DQ-8（只接受兩個啟動例外）× v0.5（6b 移到 PR-1b）：沒有新增例外，除非 DQ-11 的失敗情況發生；DQ-10（61 個編號）× 掃描範圍限定：61 個編號的骨架都在 `tests/acceptance/`，數量不變；DQ-7（配置輔助在 `tests/support/`）× 檔案位置規則：`tests/support/` 不是測試檔，不受影響。
+- **標示：** 以 `grep -rnE "依 DQ-[0-9]+ ?決定" docs/design/`（design-review.md 除外）確認只剩修訂紀錄與變更紀錄中的歷史描述；DQ-11、DQ-12 的引用都指向待決定的項目（spec.md 12.6、第 16 節；本文件第 2、3 節）；以 `grep -rn "另一個同步 PR\|另一個 PR\|PR-2 寫入\|在 PR-2 驗證" docs/design/` 確認只剩變更紀錄、修訂紀錄與 DQ 原始問題的歷史描述。
+- **腳本重新核對（需求文件 v1.1）：** 必要編號 55 對 55，Must 追溯 68 對 68；`supplementary-acceptance.json` 6 項皆 `enforced: true`。
+
 ## 5. 簽核紀錄（AC-EQ-6）
 
 | 日期 | 簽核者 | 簽核的版本 | 待決問題的決定 | 備註 |
 |---|---|---|---|---|
 | 2026-11-09 16:12（Asia/Taipei） | 產品負責人 | 設計文件 v0.4（commit dfca62f）；需求文件 v1.1 | DQ-1～DQ-10 全部採用建議（2026-11-09 16:02） | 產品負責人於對話中回覆「簽核設計」，由統籌 agent 代為記錄 |
+| v0.5 待簽核 | 產品負責人 | 設計文件 v0.5（branch `pr-1b/pre-pr2-fixes`）；需求文件 v1.1 | DQ-11、DQ-12 待決定 | PR-1b 的實作與測試 commit 須在本列簽核之後 |
 
 簽核日期必須早於第一個實作 PR 的建立日期。
 
@@ -175,3 +210,4 @@
 | 0.2 | 2026-11-04 | 依設計審查修訂全部設計文件；新增上工檢查、待決問題摘要、修訂紀錄 | design-review.md |
 | 0.3 | 2026-11-04 | 依第 2 輪回歸審查修訂 spec.md、acceptance-test-plan.md、module-test-standards.md、設計 skill；新增第 2 輪修訂紀錄 | design-review.md 回歸審查（第 2 輪） |
 | 0.4 | 2026-11-09 | 依 DQ-1～DQ-10 的決定修訂 spec.md、acceptance-test-plan.md、module-test-standards.md、review-process.md、verification.md、cards.md、supplementary-acceptance.json；第 3 節改為已關閉；需求依據改為 v1.1；新增第 3 輪修訂紀錄；設計 skill 升為 1.3。簽核欄維持待簽核 | 產品負責人 2026-11-09 16:02 的決定；需求文件 v1.1 |
+| 0.5 | 2026-11-09 | 依 PR-1 審查紀錄與實作、測試 agent 回報修訂 spec.md、review-process.md、acceptance-test-plan.md、module-test-standards.md、verification.md；新增 PR-1b、DQ-11、DQ-12；第 0 節改為 v0.5 的上工檢查；第 2、3 節加入 v0.5 待決定事項；新增第 4 輪修訂紀錄；第 5 節新增「v0.5 待簽核」一列（v0.4 簽核紀錄不變）；設計 skill 升為 1.4 | PR-1 審查紀錄 N-1～N-6；實作與測試 agent 回報；agent-dev-workflow 1.1 第 4.3 節 |

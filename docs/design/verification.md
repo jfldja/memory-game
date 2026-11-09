@@ -2,8 +2,8 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.4（依產品負責人對 DQ-8、DQ-9 的決定修訂；版本號與設計文件組對齊，跳過 0.3） |
-| 日期 | 2026-11-09（查證日期仍為 2026-11-04） |
+| 版本 | 0.5（`review-record` 的必要檢查改在 PR-1b 設定；PR-1 合併後的平台狀態紀錄） |
+| 日期 | 2026-11-09（查證日期 2026-11-04；第 2.6 節為 2026-11-09 以 API 讀取） |
 | 撰寫 | 設計 agent |
 | 依據 | docs/requirements.md v1.1（Q4、Q6 與查證相關內容與 v1.0 相同）第 12 節 Q4、Q6；第 8.2 節 A-1、A-2；第 8.4 節 |
 | 查證方式 | 2026-11-04 以 WebSearch／WebFetch 讀取 docs.github.com 官方頁面；工具授權讀取本機安裝檔的 LICENSE。部分官方頁面因本工作階段的網路允許清單無法擷取，於該列標明「未查證」 |
@@ -113,7 +113,7 @@
 **對 AC-EQ-11 的影響：**
 
 1. **AC-EQ-11 可以達成**，不需修改需求。
-2. **啟動順序限制（重要）：** `issue_comment` 與 `pull_request_target` 只執行預設分支上的工作流程檔，所以審查檢查在「加入它的 PR 合併之後」才生效。第一個 PR 無法由它把關：產品負責人須人工確認第一個 PR 有審查紀錄後合併，再啟用分支保護。又因必要檢查名稱須執行過才選得到（推定），`review-record` 要等 PR-2 寫入過一次狀態後、PR-2 合併前才加入必要檢查（spec.md 12.6 步驟 6a、6b）。AC-EQ-11 的人工驗收在 PR-2 執行。以上例外經產品負責人依 spec.md DQ-8 接受（2026-11-09）。
+2. **啟動順序限制（重要）：** `issue_comment` 與 `pull_request_target` 只執行預設分支上的工作流程檔，所以審查檢查在「加入它的 PR 合併之後」才生效。第一個 PR 無法由它把關：產品負責人須人工確認第一個 PR 有審查紀錄後合併，再啟用分支保護。又因必要檢查名稱須執行過才選得到（推定），`review-record` 要等 PR-1 之後的第一個 PR（v0.5：**PR-1b**，原為 PR-2）寫入過一次狀態後、合併前才加入必要檢查（spec.md 12.6 步驟 6a、6b）。AC-EQ-11 的人工驗收在 PR-1b 執行（步驟 8）。以上例外經產品負責人依 spec.md DQ-8 接受（2026-11-09）。
 3. **殘餘風險（需求文件第 9 節已接受）：** 任何有寫入權限者（含 agent）都能直接呼叫 API 寫一個 `success` 狀態。把必要檢查的預期來源指定為 GitHub Actions，可擋下以個人權杖寫入的狀態；但仍無法證明審查真的做過。
 
 ### 2.4 GitHub Pages 以 Actions 部署與延遲（EQ-12）
@@ -135,10 +135,20 @@
 | 限制 | 影響 | 對策 |
 |---|---|---|
 | 單一帳號無法核准自己的 PR（推定，本次未讀到官方原文） | 不能用「Require approvals」 | 依需求 Q5 的決定，以審查紀錄＋`review-record` 檢查取代；分支保護不勾選必要核准數 |
-| 分支保護的必要檢查清單只能選「最近有執行過」的檢查名稱（推定，未查證） | 第一個 PR 合併前無法選到檢查；`review-record` 在 PR-1 期間不執行，PR-1 合併後仍選不到 | PR-1 合併後先設定其餘必要檢查（步驟 6a）；PR-2 寫入過 `review-record` 後、合併前再加入（步驟 6b）。若產品負責人偏好一次設定，可改用 REST API 直接指定 context 名稱（未查證，PR-1 時實測） |
+| 分支保護的必要檢查清單只能選「最近有執行過」的檢查名稱（推定，未查證） | 第一個 PR 合併前無法選到檢查；`review-record` 在 PR-1 期間不執行，PR-1 合併後仍選不到 | PR-1 合併後先設定其餘必要檢查（步驟 6a）；PR-1b（v0.5；原為 PR-2）寫入過 `review-record` 後、合併前再加入（步驟 6b）。若產品負責人偏好一次設定，可改用 REST API 直接指定 context 名稱（未查證，PR-1 時實測） |
 | 勾選「Require branches to be up to date」後，每次更新分支都產生新 commit，必須重新審查 | 審查次數增加 | 本專案 PR 依序進行，影響小；接受 |
 
 ---
+
+### 2.6 PR-1 合併後的平台狀態（v0.5，2026-11-09 以 API 讀取）
+
+| 項目 | 讀取方式 | 結果 | 對設計的影響 |
+|---|---|---|---|
+| review-gate 是否在預設分支 | `git ls-tree main .github/workflows/`；`GET /repos/{owner}/{repo}/actions/workflows` | main（7707e9f）含 `review-gate.yml`，狀態 active | PR-1b 開啟時會以 main 上的版本執行（spec.md 12.6） |
+| review-gate 是否執行過 | `GET /repos/{owner}/{repo}/actions/runs` | 沒有任何執行紀錄（只有 PR-1 的 ci、pr-body 與 main 的 ci、deploy） | PR-1b 是第一次實際執行；`statuses: write`（DA-1）仍未實測，無法寫入時見 DQ-11 |
+| 分支保護（步驟 6a） | `GET /repos/{owner}/{repo}/branches/main/protection` | 必要檢查 6 個（`unit`、`acceptance-ids`、`e2e (chromium)`、`e2e (firefox)`、`e2e (webkit)`、`pr-body`），皆 app_id 15368；`strict: true`；`enforce_admins: true`；不允許強制推送、刪除；`required_approving_review_count: 0` | 6a 已生效；`review-record` 尚未是必要檢查。API 的 `checks` 欄位可指定 context 與 app_id，但能否指定**從未執行過**的 context 仍未查證（DQ-11 選項 (b)） |
+
+實測紀錄（本機，Node.js 22.23.4、Playwright 1.63.0；spec.md 12.2.1 的依據）：node:test 自訂 reporter 的事件含 `file`、`skip`、`todo`，略過的 `describe` 內的測試不出現在結果中，內建 JUnit reporter 沒有檔名；Playwright json reporter 中 `test.fail()` 的測試為 `expectedStatus: failed`、`status: expected`，計入 `stats.expected`；本體內 `test.skip()`、條件略過、`testInfo.skip()`、`annotation: { type: 'skip' }`、別名呼叫皆為 `expectedStatus: skipped`；`test.describe.serial.skip` 不存在，載入時 TypeError。
 
 ## 3. 結論摘要
 
@@ -147,7 +157,7 @@
 | Q4 | 可關閉：工具免費、授權允許、不隨網站散布 | 關閉 |
 | Q6 | 可關閉：Actions 與 Pages 對公開版本庫免費；EQ-2 以傳統分支保護＋「Do not allow bypassing」達成；EQ-11 以 `issue_comment`／`pull_request_target` 觸發、commit status 回寫達成；EQ-12 與官方延遲上限相同、無餘裕 | 關閉。啟動例外已依 DQ-8 接受；EQ-12 的外部延遲處理已決定（DQ-9，2026-11-09；spec.md 12.5） |
 
-未查證、須在第一批變更實測的項目：`statuses: write` 權限鍵、rulesets 對管理員的預設行為（本設計不依賴）、瀏覽器與官方 action 的授權原文、「必要檢查只能選近期執行過的名稱」。
+未查證、須在第一批變更實測的項目：`statuses: write` 權限鍵（v0.5：review-gate 尚未執行過，PR-1b 開啟時第一次實測）、rulesets 對管理員的預設行為（本設計不依賴）、瀏覽器與官方 action 的授權原文、「必要檢查只能選近期執行過的名稱」。
 
 ## 4. 變更紀錄
 
@@ -156,3 +166,4 @@
 | 0.1 | 2026-11-04 | 初稿 | 設計階段產出 |
 | 0.2 | 2026-11-04 | review-gate 觸發加入 `edited`；EQ-2 啟動例外、`review-record` 的兩段設定、EQ-12 外部延遲改列為待決問題 DQ-8、DQ-9 | design-review.md M-7 與「未列為待決的事項」第 2、3 點 |
 | 0.4 | 2026-11-09 | DQ-8、DQ-9 改為已決定並寫明處理方式；依據改為需求 v1.1；查證內容未變更 | 產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定；需求文件 v1.1 |
+| 0.5 | 2026-11-09 | 2.3、2.5：`review-record` 的必要檢查與 AC-EQ-11 驗證由 PR-2 改到 PR-1b；新增 2.6 PR-1 合併後的平台狀態（API 讀取）與執行結果格式的實測；第 3 節未查證項目補註 | agent-dev-workflow 1.1 第 4.3 節「啟動例外以外不得再有不經檢查的合併」；PR-1 審查紀錄 N-2 |

@@ -2,9 +2,9 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.4（依產品負責人對 DQ-6、DQ-8 的決定修訂；版本號與設計文件組對齊，跳過 0.3） |
+| 版本 | 0.5（PR-1 審查 N-1、N-3 的修正；6b 改到 PR-1b） |
 | 日期 | 2026-11-09 |
-| 依據 | 需求文件 v1.1 的 EQ-5、EQ-11、AC-EQ-5、AC-EQ-11；docs/workflow.md W-1、第 4.4 節；agent-dev-workflow 第 3 節、第 3.2 節 |
+| 依據 | 需求文件 v1.1 的 EQ-5、EQ-11、AC-EQ-5、AC-EQ-11；docs/workflow.md v0.2 W-1、第 4.4 節；agent-dev-workflow 1.1 第 3 節、第 3.2 節、第 4.3 節；PR #1 審查紀錄 N-1、N-3 |
 | 使用者 | 審查 agent（撰寫紀錄）、`scripts/review-gate.mjs`（判定）、產品負責人（AC-EQ-5 抽查） |
 
 ---
@@ -13,7 +13,7 @@
 
 1. 以全新工作階段啟動，載入 agent-dev-workflow，完成上工檢查。
 2. 只讀：PR 的差異與說明、docs/requirements.md、docs/design/（本文件、spec.md、module-test-standards.md、acceptance-test-plan.md）、docs/workflow.md。**不讀**作者 agent 的對話或推理過程（agent-dev-workflow 3.2）。
-3. 確認自己的工作階段識別不在 PR 說明「作者」段落中。若相同，停止並回報統籌 agent（不得審查自己的變更）。
+3. 確認自己的工作階段識別不在 PR 說明「作者」段落中（忽略大小寫比對，第 4 節第 2 步）。若相同，停止並回報統籌 agent（不得審查自己的變更）。PR 含多個角色的產出時，確認「作者」段落列出每個角色的工作階段；有 commit 的角色未列出時，判 R-1 不通過。
 4. 記下 PR 目前的 head SHA（`gh pr view <n> --json headRefOid`）。審查期間若有新 commit，重新審查。
 
 ## 2. 審查紀錄格式
@@ -30,7 +30,7 @@
 - 作者：實作 agent，工作階段 impl-2026-11-05-pr2；測試 agent，工作階段 test-2026-11-05-pr2（照抄 PR 說明「## 作者」段落的全部工作階段）
 - 獨立性：審查者與作者為同一模型（Claude）的不同工作階段（docs/workflow.md W-1）。審查者以全新上下文啟動，未讀作者的推理過程
 - 審查依據：需求文件 v<版本>；軟體規格書 v<版本>；審查清單 v<版本>
-- 已載入 skill：agent-dev-workflow <版本>；software-design-phase <版本>；requirements-spec <版本>（版本庫內的 requirements-spec 副本尚無變更紀錄時填「無版本號」；產品負責人的同步 PR 合併後改填版本號，DQ-6、spec.md 12.4）
+- 已載入 skill：agent-dev-workflow <版本>；software-design-phase <版本>；requirements-spec <版本>（填版本庫內各 SKILL.md 變更紀錄最後一列的版本號。skill 副本已隨 PR-1 同步，agent-dev-workflow 與 requirements-spec 都有變更紀錄，不再填「無版本號」；DQ-6、spec.md 12.4）
 
 ### 逐項結果
 
@@ -49,22 +49,22 @@
 
 - 「結果」只能是 `APPROVED` 或 `CHANGES_REQUESTED`。任一項為「不通過」時只能是 `CHANGES_REQUESTED`。
 - 「針對 commit」必須是完整 40 碼 SHA。
-- 每一項審查清單都要有結果（通過／不通過／不適用），「不適用」須寫理由。
-- 工作階段識別由統籌 agent 在派工時指定，格式建議 `<角色>-<日期>-<PR 或工作>-<序號>`；只要同一 PR 內可區分即可。
+- 每一項審查清單**恰好一列**，結果欄只寫「通過」「不通過」「不適用」三者之一（不加其他文字；說明寫在說明欄），「不適用」須在說明欄寫理由。同一 R 編號寫兩列以上時，整則紀錄無效（第 4 節第 5 步），需要更正時留一則新的紀錄。
+- 工作階段識別由統籌 agent 在派工時指定，格式建議 `<角色>-<日期>-<PR 或工作>-<序號>`，**一律使用小寫英數字與連字號**；只要同一 PR 內可區分即可。判定以忽略大小寫比對（第 4 節第 2 步），所以只差大小寫的兩個識別碼視為同一個工作階段。
 - 紀錄留下後不要編輯；需要更正時留一則新的紀錄（判定以最後一則為準）。
 
-## 3. 審查清單（v0.2）
+## 3. 審查清單（v0.3）
 
 第一項固定為 workflow.md 第 4.4 節的檢查。
 
 | 編號 | 項目 | 檢查方式 |
 |---|---|---|
-| R-1 | PR 說明含「上工檢查」全部勾選，以及「已載入的 skill」表格，版本號等於版本庫中各 SKILL.md 變更紀錄的最新版本號 | 讀 PR 說明與 SKILL.md；`pr-body` 檢查已自動做，但審查者仍須人工確認版本號合理（例如設計 skill 有更新時是否反映） |
+| R-1 | PR 說明含「上工檢查」全部勾選，以及「已載入的 skill」表格，版本號等於版本庫中各 SKILL.md 變更紀錄的最新版本號 | 讀 PR 說明與 SKILL.md；`pr-body` 檢查已自動做，但審查者仍須人工確認版本號合理（例如設計 skill 有更新時是否反映）。v0.3：「## 作者」列出每個有 commit 的角色（依 `git log` 的 commit 對照）；修訂需求文件的作者列出 requirements-spec 版本號（PR-1 審查 N-4(a)、N-5） |
 | R-2 | PR 說明的對應編號完整，每個變更都能對應到需求或設計編號 | 比對差異與「對應編號」段落 |
 | R-3 | 角色分工：實作 agent 沒有修改 `tests/acceptance/`、`tests/support/`；測試 agent 沒有修改 `src/`；驗收測試的修改附需求編號與理由（agent-dev-workflow 5.2） | `git diff --stat` 依目錄檢查作者 |
 | R-4 | 沒有實作需求文件或規格書沒寫的行為；遇到空白時已回報而非自行決定 | 對照 spec.md 第 5 節轉移表與第 16 節待決問題 |
 | R-5 | 狀態機變更與 spec.md 第 5 節一致：轉移、守衛、計時器在暫停與終止時的行為；新增的狀態或操作已依 requirements-spec 3.8 檢查 | 讀 `core/game.js` 差異與單元測試 |
-| R-6 | 驗收測試：名稱含正確編號；時間相關測試以控制時鐘並在 `pauseAt` 後推進，檢查點落在容差邊界；NFR-6 不控制時鐘；沒有放寬驗收標準 | 對照需求第 10 節與 acceptance-test-plan.md |
+| R-6 | 驗收測試：名稱含正確編號；時間相關測試以控制時鐘並在 `pauseAt` 後推進，檢查點落在容差邊界；NFR-6 不控制時鐘；沒有放寬驗收標準。v0.3：略過只用骨架宣告 `test.skip(名稱, 函式)`，沒有條件略過、預期失敗或別名等規避寫法（spec.md 12.2 第 8、9 點）；驗收測試檔位於會被執行的位置（12.2 第 4 點）；`tests/unit/` 的測試名稱沒有必要編號（12.2 第 5 點） | 對照需求第 10 節與 acceptance-test-plan.md |
 | R-7 | 單元測試涵蓋 module-test-standards.md 對該模組列出的行為與邊界 | 對照模組測試標準 |
 | R-8 | 層次相依：`core` 不引用 `ui`、`platform`、DOM、`Date`、`performance`、`Math.random`、`setTimeout`、`localStorage` | 搜尋 `src/js/core/` |
 | R-9 | C-2、C-4、C-5、NFR-7：`src/` 沒有外部網址、第三方程式庫、網路字型、cookie；牌面 SVG 不帶牌面識別碼的屬性 | 以正規表示式 `https?://` 搜尋（`faces.js` 依 cards.md 第 2 節已移除 `xmlns`，不應有任何命中）；搜尋 `import` 的來源、`@font-face`、`document.cookie`、`aria-label` |
@@ -72,7 +72,7 @@
 | R-11 | 主分支不會壞：CI 全部通過；未實作功能的驗收測試仍為略過而不是失敗 | 查看 PR 檢查結果 |
 | R-12 | 文件與 skill：設計變更已更新規格書並升版；skill 的修改附變更紀錄；沒有修改 `.claude/skills/agent-dev-workflow/`、`.claude/skills/requirements-spec/`（W-3） | 檢查差異 |
 | R-13 | 程式品質：命名清楚、沒有無用程式碼、錯誤處理符合 spec.md（例如 storage 不丟出例外） | 閱讀 |
-| R-14 | CI 與檢查規則的變更：PR 若修改 `.github/workflows/*`、`scripts/check-acceptance-ids.mjs`、`scripts/check-pr-body.mjs`、`scripts/review-gate.mjs`、`playwright.config.mjs`、`package.json` 的測試指令、`docs/design/supplementary-acceptance.json` 或 `docs/requirements.md`：PR 說明列出理由與對應編號；審查者確認沒有降低任何檢查（例如移除必要 job、縮小掃描範圍、增加略過判定的例外、把 `enforced` 改為 false、在 `run:` 插值事件內容）；`docs/requirements.md` 的變更附產品負責人核准的版本。這些檔案在 `pull_request` 事件下以 PR 自己的版本執行，PR 可藉此放寬自己的檢查，只能靠審查攔下 | 逐檔閱讀差異 |
+| R-14 | CI 與檢查規則的變更：PR 若修改 `.github/workflows/*`、`scripts/check-acceptance-ids.mjs`、`scripts/check-acceptance-results.mjs`、`scripts/acceptance-reporter.mjs`、`scripts/check-pr-body.mjs`、`scripts/review-gate.mjs`、`playwright.config.mjs`、`package.json` 的測試指令、`docs/design/supplementary-acceptance.json` 或 `docs/requirements.md`：PR 說明列出理由與對應編號；審查者確認沒有降低任何檢查（例如移除必要 job、縮小掃描範圍、增加略過判定的例外、把 `enforced` 改為 false、在 `run:` 插值事件內容、在執行器加上名稱過濾或略過參數、移除 `check-acceptance-results` 步驟或 json reporter）。註：spec.md v0.5 把「採計覆蓋」的範圍限定為 `tests/acceptance/`，是排除單元測試冒充驗收、比原本嚴格的設計變更，不屬於此處的「縮小掃描範圍」；`--no-skip` 對 `tests/unit/` 的略過檢查仍維持；`docs/requirements.md` 的變更附產品負責人核准的版本。這些檔案在 `pull_request` 事件下以 PR 自己的版本執行，PR 可藉此放寬自己的檢查，只能靠審查攔下 | 逐檔閱讀差異 |
 
 ## 4. 審查檢查的判定規則（`scripts/review-gate.mjs`）
 
@@ -81,7 +81,7 @@
 步驟：
 
 1. 以 API 重新讀取 PR：最新 head SHA、PR 說明、狀態。PR 已關閉時結束，不寫狀態。
-2. 從 PR 說明「## 作者」段落取出所有工作階段識別：段落內每一行符合 `工作階段：<識別>`（全形冒號，去除前後空白與 HTML 註解）者都採計；一個 PR 可有多位作者（例如「- 角色：實作 agent」「- 工作階段：…」兩行一組重複）。
+2. 從 PR 說明「## 作者」段落取出所有工作階段識別：段落內每一行符合 `工作階段：<識別>`（全形冒號，去除前後空白與 HTML 註解）者都採計；一個 PR 可有多位作者（例如「- 角色：實作 agent」「- 工作階段：…」兩行一組重複）。**比對規則（v0.5，PR-1 審查 N-1）：** 作者與審查者的工作階段識別都先去除前後空白、做 Unicode NFKC 正規化（全形英數轉半形）、再轉小寫，之後才比對是否相同。理由：識別碼由 agent 自行填寫，`IMPL-1` 與 `impl-1`、全形與半形顯然指同一個工作階段；區分大小寫會讓審查者只改大小寫就通過「審查者不等於作者」的檢查。
 3. 讀取 PR 的全部一般評論，篩選：
    - 第一行為 `<!-- review-record v1 -->`；
    - `author_association` 為 `OWNER`、`MEMBER` 或 `COLLABORATOR`（公開版本庫任何人都能評論）；
@@ -90,8 +90,10 @@
 5. 檢查該則：
    - 「審查者」的工作階段識別存在，且不等於第 2 步任何作者的工作階段；否則 `failure`「審查者與作者相同或未標明」。
    - 含「同一模型」與「不同工作階段」字樣；否則 `failure`「未註明 W-1」。
-   - 逐項結果表至少含 R-1～R-14 每一列，且沒有空白結果；否則 `failure`「審查清單不完整」。
-   - 「結果」為 `APPROVED` 且表中沒有「不通過」；否則 `failure`「審查要求修改」。
+   - **重複（v0.5，PR-1 審查 N-1）：** 逐項結果表中任一 R 編號（`R-<數字>`，含清單以外的編號）出現兩列以上時，`failure`「審查清單重複：R-n」。整則紀錄視為無效，不以第一列或最後一列為準。理由：以最後一列為準時，「不通過」可被同編號後一列的「通過」覆蓋；任一列為準都會讓自相矛盾的紀錄得到其中一種解讀，判定無效最單純，更正方式是留一則新的紀錄。
+   - 逐項結果表含 R-1～R-14 每一列，且每列結果欄（第 3 欄，去除前後空白）恰為「通過」「不通過」「不適用」之一；否則 `failure`「審查清單不完整：R-n」。「不適用」列的說明欄（第 4 欄）為空白時同樣 `failure`。
+   - **不通過（v0.5）：** 表中**任一列**（含 R-1～R-14 以外的列）結果為「不通過」，或「結果」不是 `APPROVED`，`failure`「審查要求修改」。
+   - 以上檢查的順序：重複 → 不完整 → 不通過；回報第一個成立的原因。
 6. 全部通過：`success`，說明「已審查 <短碼>（審查者 <工作階段>）」。
 7. 以 `POST /repos/{owner}/{repo}/statuses/{head_sha}` 寫入，`context` 為 `review-record`，`target_url` 指向該則評論（或 PR）。
 
@@ -109,7 +111,8 @@
 - CI 只能確認紀錄存在且格式正確，無法確認審查真的做過（需求第 9 節已接受）。產品負責人在 UAT 前抽看（AC-EQ-5）。
 - 工作階段識別由 agent 自行填寫，CI 無法驗證真偽。
 - 有寫入權限者可以直接以 API 寫入 `review-record` 狀態；分支保護指定來源為 GitHub Actions 可擋下以個人權杖寫入的狀態。
-- 第一個 PR（加入本機制的 PR）不受本檢查把關，由產品負責人人工確認；`review-record` 在 PR-2 寫入過一次後才能加為必要檢查（spec.md 12.6 步驟 4、6b；DQ-8 已由產品負責人接受，處理方式見 spec.md 12.6「EQ-2 啟動例外的處理」）。
+- 第一個 PR（加入本機制的 PR）不受本檢查把關，由產品負責人人工確認；`review-record` 在 PR-1 之後的第一個 PR（**PR-1b**，v0.5；原為 PR-2）寫入過一次後、合併前加為必要檢查（spec.md 12.6 步驟 4、6b、8；DQ-8 已由產品負責人接受，處理方式見 spec.md 12.6「EQ-2 啟動例外的處理」；review-gate 第一次執行就無法寫入狀態時見 DQ-11）。
+- 本檢查永遠以預設分支上的 `review-gate.mjs` 判定。修改本檢查的 PR（例如 PR-1b 實作本文件 v0.5 的第 4 節）由修改前的版本判定，修改在合併後才生效。PR-1b 的處理見 spec.md 12.6「PR-1b 由舊版判定」。
 
 ## 6. 變更紀錄
 
@@ -118,3 +121,4 @@
 | 0.1 | 2026-11-04 | 初稿 | 設計階段產出 |
 | 0.2 | 2026-11-04 | 新增 R-14（CI 與檢查規則變更）；R-9 改用正規表示式並檢查 `aria-label`；多位作者的解析規則；工作流程注入防護與並行群組；判定清單改為 R-1～R-14；啟動例外改指向 DQ-8 | design-review.md M-6、M-7、M-8、M-11、P-5 |
 | 0.4 | 2026-11-09 | 紀錄範例的需求與 skill 版本改為佔位，寫明 requirements-spec 在副本同步前後的填法（DQ-6）；啟動例外改為已接受（DQ-8）；依據改為需求 v1.1 | 產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定；需求文件 v1.1 |
+| 0.5 | 2026-11-09 | 第 4 節：同一 R 編號重複出現時整則紀錄無效；結果欄只接受三個值、「不適用」須有說明；任一列「不通過」即失敗；工作階段識別以去除空白、NFKC、小寫後比對；第 2 節對應規則與小寫建議；第 1 節多角色 PR 列出全部作者；第 2 節 skill 版本的填法改為副本已隨 PR-1 同步；第 5 節 6b 改到 PR-1b、新增「修改本檢查的 PR 由舊版判定」 | PR-1 審查紀錄 N-1（重複 R 列以最後一列為準、大小寫）、N-3（同步 PR 描述過時）、N-4(a)（作者段落）；agent-dev-workflow 1.1 第 4.3 節 |
