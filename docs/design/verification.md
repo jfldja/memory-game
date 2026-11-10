@@ -2,8 +2,8 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.5（`review-record` 的必要檢查改在 PR-1b 設定；PR-1 合併後的平台狀態紀錄） |
-| 日期 | 2026-11-09（查證日期 2026-11-04；第 2.6 節為 2026-11-09 以 API 讀取） |
+| 版本 | 0.6（新增 2.7：PR-1b 合併後的平台狀態與 GFM 渲染實測，DQ-14 的依據）；0.5（`review-record` 的必要檢查改在 PR-1b 設定；PR-1 合併後的平台狀態紀錄） |
+| 日期 | 2026-11-10（查證日期 2026-11-04；第 2.6 節為 2026-11-09、第 2.7 節為 2026-11-10 以 API 讀取與本機實測） |
 | 撰寫 | 設計 agent |
 | 依據 | docs/requirements.md v1.1（Q4、Q6 與查證相關內容與 v1.0 相同）第 12 節 Q4、Q6；第 8.2 節 A-1、A-2；第 8.4 節 |
 | 查證方式 | 2026-11-04 以 WebSearch／WebFetch 讀取 docs.github.com 官方頁面；工具授權讀取本機安裝檔的 LICENSE。部分官方頁面因本工作階段的網路允許清單無法擷取，於該列標明「未查證」 |
@@ -152,6 +152,19 @@
 
 第 3 輪審查後的實測（同一環境；spec.md 12.2.1 第 6 項的依據）：Playwright `json` reporter 的 `steps` 不含 `expect`；自訂 reporter 的 `onStepEnd` 收到 `category: 'expect'` 的步驟，計數為：空本體 0、第一個斷言前 `return` 0、`expect.soft` 1、`expect.poll` 2、`test.step` 內的 `expect` 1、被 `try/catch` 吞掉的失敗斷言 1 且帶 `error`（測試狀態仍為 `passed`）。node:test：在輔助模組最上層註冊的 `beforeEach`／`afterEach` 套用於匯入它的測試檔，`afterEach` 中 `t.diagnostic(…)` 的事件帶有該測試的 `file`、`line`、`column`，與 `test:pass` 相同，可據以對應；略過的測試不執行 hook；以包裝 `test` 的函式註冊測試時，事件的 `file`、`line` 變成包裝模組的位置，不可行。NFKC 不移除 U+200B（設計審查第 3 輪實測，本輪未重做）。
 
+### 2.7 PR-1b 合併後的平台狀態與 GFM 渲染實測（v0.6，2026-11-10；DQ-14 的依據）
+
+| 項目 | 讀取或實測方式 | 結果 | 對設計的影響 |
+|---|---|---|---|
+| PR-1b 合併 | `GET /repos/{owner}/{repo}/pulls/3` | `merged_at` 2026-11-10T13:34:43Z，merge commit fa05bbb，head e5212c7 | main 上的 review-gate 為 PR-1b 版 |
+| review-gate 的執行紀錄 | `GET /repos/{owner}/{repo}/actions/workflows/review-gate.yml/runs` | 共 10 次（探測 PR A、PR-1b 的 `pull_request_target` 與 `issue_comment`），全部在 main 7707e9f 上執行，結論皆 success；最後一次 13:34:28Z，在合併之前。fa05bbb 上沒有任何執行 | PR-1b 版從未在平台執行；PR-1c 開啟時是第一次（spec.md 12.6「v0.6 的順序」第 4 點） |
+| 分支保護 | `GET /repos/{owner}/{repo}/branches/main/protection` | 必要檢查 7 項（6a 的 6 項＋`review-record`），皆 app_id 15368；`strict: true`；`enforce_admins: true` | 6b 已生效；PR-1b 版無法寫入狀態時 PR-1c 無法合併（DQ-11 (a)） |
+| 評論的渲染結果 | `GET /repos/{owner}/{repo}/issues/3/comments`，`Accept: application/vnd.github.full+json` | 回傳 `body_html`：標記行的 HTML 註解被移除；清單、段落、標題結構與 cmark-gfm 一致；表格外包 `<markdown-accessiblity-table>`（非標準元素）；儲存格中的 commit 短碼被轉為連結 | DQ-14 選項 (d) 可行，但格式不是 GitHub 公開承諾的介面 |
+| GitHub 的 Markdown 渲染 API | `POST /markdown`（mode=gfm） | 本工作階段以 HTTP 403 拒絕（只允許版本庫範圍的端點） | 未能以 GitHub 本身渲染構造的案例；改以 cmark-gfm 實測 |
+| GFM 規格原文 | https://github.github.com/gfm/ | 不在本工作階段的網路允許清單內，**未查證原文** | 表格與字元參照的行為以下一列的實測為準 |
+| GFM 表格與字元參照的行為 | 本機以 GitHub 的 cmark-gfm（Python 綁定 `cmarkgfm` 2025.10.22；擴充 table、strikethrough、autolink、tagfilter、tasklist；`CMARK_OPT_UNSAFE` 保留原始 HTML）渲染 | **實測**：(1) 表格延續到空行或另一個區塊（標題、引用、清單、HTML、圍欄、分隔線）開始前；緊接在後的任何行都成為一列，不需要直線（`R-5 不通過`、`補充：…` 皆成為列）；只含 U+00A0 的行不是空行；以 U+3164 開頭的列，U+3164 成為第一格。(2) 分隔列只有 `-` 時是 Setext 標題；`:--`、`--:`、`:-:`、`\|-`、`-\|` 都能構成單欄表格。(3) 以 `&#124;` 或反斜線跳脫寫的直線、縮排 4 格的分隔列都不構成表格。(4) 引用與清單項目中的表格不延續到容器外的行。(5) `&#x7D50;`、`&#32080;`、`&nbsp;`、`&colon;`、`&ZeroWidthSpace;` 在一般文字中解碼。(6) 標籤可跨行（`<span` 換行 `class="x">`），渲染時兩行接成一段文字。(7) `<?x?>`、`<![CDATA[x]]>` 原樣輸出（GitHub sanitizer 之後的結果未實測，推定為不顯示） | review-process.md 4.1 的判定表與 DQ-14 各選項的規則 |
+| Unicode 性質（JavaScript） | Node.js 22.23.4，`/\p{Default_Ignorable_Code_Point}/u` 等 | U+3164、U+FFA0、U+115F、U+1160、U+034F、U+FE00、U+FE0F、U+E0100、U+180B 屬於 Default_Ignorable_Code_Point 而不屬於 Cf；U+034F、U+FE00、U+FE0F、U+E0100、U+180B 屬於 M；U+2800 兩者皆否；NFKC 把 U+3164、U+FFA0 轉為 U+1160（仍為字母）、U+00A0 轉為空格 | DQ-14 (b) 的 X2～X4 |
+
 ## 3. 結論摘要
 
 | 編號 | 結論 | 建議 |
@@ -170,3 +183,4 @@
 | 0.4 | 2026-11-09 | DQ-8、DQ-9 改為已決定並寫明處理方式；依據改為需求 v1.1；查證內容未變更 | 產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定；需求文件 v1.1 |
 | 0.5 | 2026-11-09 | 2.3、2.5：`review-record` 的必要檢查與 AC-EQ-11 驗證由 PR-2 改到 PR-1b；新增 2.6 PR-1 合併後的平台狀態（API 讀取）與執行結果格式的實測；第 3 節未查證項目補註 | agent-dev-workflow 1.1 第 4.3 節「啟動例外以外不得再有不經檢查的合併」；PR-1 審查紀錄 N-2 |
 | 0.5（第 3 輪審查修訂） | 2026-11-09 | 2.6 補斷言計數的實測（Playwright 自訂 reporter、node:test hook 與 diagnostic） | design-review.md 設計審查第 3 輪 M-1 |
+| 0.6 | 2026-11-10 | 新增 2.7：PR-1b 合併後的平台狀態（review-gate 執行紀錄、分支保護、`body_html`）與 GFM 渲染、Unicode 性質的實測；GFM 規格原文與 `POST /markdown` 未能讀取，標為未查證並以 cmark-gfm 實測 | spec.md v0.6 DQ-14、12.6「v0.6 的順序」 |
