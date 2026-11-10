@@ -1036,3 +1036,16 @@ describe('v0.6.1：review-gate 的作者段落（與 pr-body 共用 validateAuth
     assert.equal(judge([comment(record())], body('- 角色：實作 agent', '- 工作階段：review-1')).description, '審查者與作者相同或未標明');
   });
 });
+
+describe('v0.6.1：review-gate 的相依只有內建模組與本目錄的兩個檔案（review-process.md 第 4 節「工作流程設定」）', () => {
+  test('review-gate.mjs、check-pr-body.mjs、detection.mjs 的匯入來源', async () => {
+    const { readFileSync } = await import('node:fs');
+    const allowed = new Set(['./check-pr-body.mjs', './detection.mjs']);
+    for (const f of ['review-gate.mjs', 'check-pr-body.mjs', 'detection.mjs']) {
+      const src = readFileSync(path.join(path.dirname(SCRIPT), f), 'utf8');
+      const specs = [...src.matchAll(/^\s*(?:import|export)\s[^;]*?from\s+'([^']+)'/gm)].map((m) => m[1]);
+      for (const spec of specs) assert.ok(spec.startsWith('node:') || allowed.has(spec), `${f}：${spec}`);
+      assert.doesNotMatch(src, /\brequire\(|\bimport\(/, f);
+    }
+  });
+});
