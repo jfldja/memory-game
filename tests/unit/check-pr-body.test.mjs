@@ -8,6 +8,8 @@ import {
   evaluatePrBody,
   latestChangelogVersion,
   parseAuthorSessions,
+  parseAuthorSessionsRaw,
+  normalizeSessionId,
   stripHtmlComments,
   skillReader,
   NO_VERSION,
@@ -239,5 +241,47 @@ describe('PR 範本', () => {
     assert.match(template, /^## 上工檢查/m);
     assert.match(template, /^## 已載入的 skill/m);
     assert.doesNotMatch(stripHtmlComments(template), new RegExp(NO_VERSION));
+  });
+});
+
+describe('作者工作階段識別的格式（spec.md 12.4 第 4 點，review-process.md 第 4 節第 2 步）', () => {
+  const withSession = (id) => makeBody({ authors: ['- 角色：實作 agent', `- 工作階段：${id}`] });
+
+  test('normalizeSessionId：去除前後空白、NFKC（全形轉半形）、轉小寫', () => {
+    assert.equal(normalizeSessionId('  impl-1 '), 'impl-1');
+    assert.equal(normalizeSessionId('IMPL-1'), 'impl-1');
+    assert.equal(normalizeSessionId('ｉｍｐｌ－１'), 'impl-1');
+    assert.equal(normalizeSessionId('\u3000impl-1\u3000'), 'impl-1');
+  });
+
+  test('normalizeSessionId：零寬字元、BOM、方向控制字元、相似字、其他字元時為 null', () => {
+    for (const bad of ['impl\u200b-1', '\ufeffimpl-1', 'impl-1\u202e', 'impl\u2060-1', 'іmpl-1', 'impl_1', 'impl 1', 'impl.1', '', '   ']) {
+      assert.equal(normalizeSessionId(bad), null, JSON.stringify(bad));
+    }
+  });
+
+  test('含大寫或全形的作者識別正規化後通過', () => {
+    assert.equal(evaluatePrBody({ body: withSession('IMPL-1'), readSkill }).ok, true);
+    assert.equal(evaluatePrBody({ body: withSession('ｉｍｐｌ－１'), readSkill }).ok, true);
+  });
+
+  test('作者識別含零寬字元、BOM 或相似字時失敗', () => {
+    for (const bad of ['impl\u200b-1', '\ufeffimpl-1', 'іmpl-1', 'impl_1']) {
+      const r = evaluatePrBody({ body: withSession(bad), readSkill });
+      assert.equal(r.ok, false, JSON.stringify(bad));
+      assert.ok(r.errors.some((e) => /作者工作階段識別格式不符/.test(e)), r.errors.join('\n'));
+    }
+  });
+
+  test('多位作者中只要一位格式不符即失敗', () => {
+    const body = makeBody({
+      authors: ['- 角色：實作 agent', '- 工作階段：impl-1', '- 角色：測試 agent', '- 工作階段：test\u200b-1'],
+    });
+    assert.equal(evaluatePrBody({ body, readSkill }).ok, false);
+  });
+
+  test('parseAuthorSessionsRaw 保留原文（BOM 不會被 trim 移除後才檢查）', () => {
+    assert.deepEqual(parseAuthorSessionsRaw(withSession('\ufeffimpl-1')), ['\ufeffimpl-1']);
+    assert.deepEqual(parseAuthorSessions(withSession(' impl-1 ')), ['impl-1']);
   });
 });
