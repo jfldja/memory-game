@@ -21,6 +21,9 @@ import {
   checkAssertImports,
   acceptanceLayer,
   hasAssertionCall,
+  findTemplateNameIssues,
+  findSubtestsAndConcurrency,
+  templatePrefix,
 } from '../../scripts/check-acceptance-ids.mjs';
 
 const REQ_FIXTURE = [
@@ -689,6 +692,147 @@ describe('runCheck v0.5：第 9c 點（無瀏覽器層驗收測試的斷言來�
     const a = analyzeSource("import { assert } from '../../../support/assertions.mjs';");
     assert.deepEqual(checkAssertImports(a, 'tests/acceptance/unit/sub/x.test.mjs', 'tests/support/assertions.mjs'), []);
     assert.equal(checkAssertImports(a, 'tests/acceptance/unit/x.test.mjs', 'tests/support/assertions.mjs').length, 1);
+  });
+});
+
+describe('runCheck v0.6.1：第 9d 點（樣板字面值的測試名稱）', () => {
+  const UNIT_HEAD = "import { test, describe } from 'node:test';\nimport { assert } from '../../support/assertions.mjs';\n";
+  const unitFile = (body) => ({ 'tests/acceptance/unit/v.test.mjs': UNIT_HEAD + body });
+  const e2eFile = (body) => ({ 'tests/acceptance/e2e/v.spec.mjs': E2E_HEAD + body });
+  const T = (name) => `test(\`${name}\`, () => { assert.ok(1); });\n`;
+  const S = (name) => `test('${name}', () => { assert.ok(1); });\n`;
+  const rule = '12.2 第 9d 點';
+  const only9d = (r) => r.violations.filter((v) => v.rule === rule);
+
+  test('固定前綴為空（以 ${ 開頭、前綴只有空白）：失敗「樣板名稱的固定前綴為空」，列出檔名與行號', () => {
+    for (const name of ['${a} AC-ZZ-5', ' ${a}', '\t${a}x']) {
+      const r = check(unitFile(T(name)));
+      const v = only9d(r);
+      assert.equal(r.ok, false, name);
+      assert.equal(v.length, 1, JSON.stringify(r.violations));
+      assert.match(v[0].message, /^樣板名稱的固定前綴為空/);
+      assert.equal(v[0].file, 'tests/acceptance/unit/v.test.mjs');
+      assert.equal(v[0].line, 3);
+    }
+  });
+
+  test('同一檔案中兩個樣板前綴互為前綴（含相等）：失敗「樣板名稱前綴不唯一」', () => {
+    for (const [a, b] of [['AC-ZZ-5 ${x}', 'AC-ZZ-5 ${y}'], ['AC-ZZ-5 ${x}', 'AC-ZZ-5 範圍 ${y}']]) {
+      const v = only9d(check(unitFile(T(a) + T(b))));
+      assert.ok(v.length >= 1, `${a} / ${b}`);
+      assert.ok(v.every((x) => /^樣板名稱前綴不唯一/.test(x.message)));
+    }
+  });
+
+  test('樣板前綴與同檔的字面值名稱相等或為其前綴：失敗（字串字面值與不含 ${ 的樣板都算）', () => {
+    for (const other of [S('AC-ZZ-5 '), S('AC-ZZ-5 其他'), T('AC-ZZ-5 不含運算式')]) {
+      const r = check(unitFile(T('AC-ZZ-5 ${x}') + other));
+      assert.deepEqual(only9d(r).map((v) => v.line), [3], other);
+      assert.match(only9d(r)[0].message, /^樣板名稱前綴不唯一："AC-ZZ-5 " 是第 4 行/);
+    }
+  });
+
+  test('describe 名稱也採計；e2e 層同樣適用', () => {
+    const r = check(e2eFile("test.describe('組 a', () => { test(`組 ${1}`, async () => { expect(1).toBe(1); }); });\n"));
+    assert.equal(only9d(r).length, 1);
+    assert.match(only9d(r)[0].message, /^樣板名稱前綴不唯一/);
+    assert.equal(only9d(check(e2eFile("test(`${1} x`, async () => { expect(1).toBe(1); });\n"))).length, 1);
+  });
+
+  test('對照：前綴非空且唯一、不同檔案的相同前綴、名稱以字面值為前綴（反向）不失敗', () => {
+    assert.deepEqual(only9d(check(unitFile(T('AC-ZZ-5 甲 ${x}') + T('AC-ZZ-5 乙 ${y}')))), []);
+    assert.deepEqual(only9d(check({
+      'tests/acceptance/unit/v.test.mjs': UNIT_HEAD + T('AC-ZZ-5 ${x}'),
+      'tests/acceptance/unit/w.test.mjs': UNIT_HEAD + T('AC-ZZ-5 ${y}'),
+    })), []);
+    // 字面值「AC-ZZ-5」是樣板前綴「AC-ZZ-5 甲 」的前綴（反向）：結果「AC-ZZ-5」不會被樣板以前綴比對到，不失敗
+    assert.deepEqual(only9d(check(unitFile(T('AC-ZZ-5 甲 ${x}') + S('AC-ZZ-5')))), []);
+  });
+
+  test('樣板只出現在字串資料、斷言訊息、名稱以外的參數中時不採計', () => {
+    const src = "test('X', () => { const s = `${a}`; assert.ok(1, `${b}`); });\nconst data = \"test(`${c}`, () => {})\";\n";
+    assert.deepEqual(only9d(check(unitFile(src))), []);
+  });
+
+  test('templatePrefix 與 findTemplateNameIssues 純函式', () => {
+    const calls = analyzeSource('test(`a ${x}`, () => {}); test(\'b\', () => {}); test(`c`, () => {});').calls;
+    assert.deepEqual(calls.map(templatePrefix), ['a ', null, null]);
+    assert.deepEqual(findTemplateNameIssues(analyzeSource('test(`a ${x}`, f);\ntest(`a ${y}`, f);')).map((v) => v.line), [1, 2]);
+  });
+});
+
+describe('runCheck v0.6.1：第 9e 點（無瀏覽器層驗收測試不得使用子測試與並行）', () => {
+  const UNIT_HEAD = "import { test, it, describe, suite } from 'node:test';\nimport { assert } from '../../support/assertions.mjs';\n";
+  const unitFile = (body) => ({ 'tests/acceptance/unit/v.test.mjs': UNIT_HEAD + body });
+  const rule = '12.2 第 9e 點';
+  const only9e = (r) => r.violations.filter((v) => v.rule === rule);
+
+  const SUBTESTS = [
+    ['t.test(…)', "test('X', async (t) => { assert.ok(1); await t.test('子', () => {}); });"],
+    ["t['test'](…)", "test('X', async (t) => { assert.ok(1); await t['test']('子', () => {}); });"],
+    ['t?.test(…)', "test('X', async (t) => { assert.ok(1); await t?.test('子', () => {}); });"],
+    ['以其他名稱的測試情境 ctx.test(…)', "test('X', async function (ctx) { assert.ok(1); await ctx.test('子', () => {}); });"],
+    ['最上層 test(…)', "test('X', () => { assert.ok(1); test('子', () => {}); });"],
+    ['最上層 it(…)', "test('X', () => { assert.ok(1); it('子', () => {}); });"],
+    ['describe(…)', "test('X', () => { assert.ok(1); describe('子', () => {}); });"],
+    ['suite(…)', "it('X', () => { assert.ok(1); suite('子', () => {}); });"],
+    ['test.skip(…)', "test('X', () => { assert.ok(1); test.skip('子', () => {}); });"],
+    ['巢狀箭頭函式內的 test(…)', "test('X', () => { assert.ok(1); [1].forEach(() => { test('子', () => {}); }); });"],
+    ['describe 內的測試本體中的 it(…)', "describe('組', () => { it('X', () => { assert.ok(1); it('子', () => {}); }); });"],
+  ];
+  for (const [label, src] of SUBTESTS) {
+    test(`${label}：失敗「驗收測試不得使用子測試」`, () => {
+      const r = check(unitFile(src + '\n'));
+      const v = only9e(r);
+      assert.equal(r.ok, false, label);
+      assert.ok(v.length >= 1, JSON.stringify(r.violations));
+      assert.ok(v.every((x) => /^驗收測試不得使用子測試/.test(x.message)), JSON.stringify(v));
+      assert.equal(v[0].line, 3);
+    });
+  }
+
+  for (const [label, src] of [
+    ['describe 的選項 { concurrency: 2 }', "describe('組', { concurrency: 2 }, () => { test('X', () => { assert.ok(1); }); });"],
+    ['test 的選項 { concurrency: true }', "test('X', { concurrency: true }, () => { assert.ok(1); });"],
+    ['簡寫 { concurrency }', "const concurrency = 2;\ndescribe('組', { concurrency }, () => { test('X', () => { assert.ok(1); }); });"],
+    ["字串鍵 { 'concurrency': 2 }", "describe('組', { 'concurrency': 2 }, () => { test('X', () => { assert.ok(1); }); });"],
+    ['屬性存取 o.concurrency', "const o = {};\no.concurrency = 2;\ntest('X', () => { assert.ok(1); });"],
+    ["計算屬性 o['concurrency']", "const o = {};\no['concurrency'] = 2;\ntest('X', () => { assert.ok(1); });"],
+  ]) {
+    test(`${label}：失敗「驗收測試不得設定 concurrency」`, () => {
+      const v = only9e(check(unitFile(src + '\n')));
+      assert.equal(v.length, 1, JSON.stringify(v));
+      assert.equal(v[0].message, '驗收測試不得設定 concurrency');
+    });
+  }
+
+  test('對照：describe 本體中的 test(…)／it(…)、RegExp 的 .test(…)、字串資料與註解中的 t.test( 不誤判', () => {
+    const src = [
+      "describe('組', () => { test('X', () => { assert.ok(/a/.test('a')); }); it('Y', () => { assert.ok(1); }); });",
+      "test('Z', (t) => { const re = /b/; assert.ok(re.test('b')); const s = \"t.test('子', () => {})\"; /* t.test( */ // test('註解')",
+      "  assert.ok(s); t.after(() => {}); });",
+      "const note = 'concurrency: 2'; // { concurrency: 2 }",
+    ].join('\n');
+    const r = check(unitFile(src + '\n'));
+    assert.deepEqual(only9e(r), [], JSON.stringify(r.violations));
+  });
+
+  test('測試情境以外的物件的 .test 屬性（例：別的變數）不受 (2) 限制；測試本體外呼叫 test(…) 不受 (1) 限制', () => {
+    const src = "const helper = { test() { return true; } };\ntest('X', (t) => { assert.ok(helper.test()); });\ntest('Y', () => { assert.ok(1); });\n";
+    assert.deepEqual(only9e(check(unitFile(src))), []);
+  });
+
+  test('tests/acceptance/e2e/ 不適用 9e', () => {
+    const r = check({
+      'tests/acceptance/e2e/v.spec.mjs': E2E_HEAD +
+        "test.describe('組', () => { test.describe.configure({ mode: 'parallel' }); test('X', async () => { expect(1).toBe(1); }); });\nconst o = { concurrency: 2 };\n",
+    });
+    assert.deepEqual(only9e(r), []);
+  });
+
+  test('findSubtestsAndConcurrency 純函式：同一呼叫只回報一次，依行號排序', () => {
+    const a = analyzeSource("test('X', (t) => {\n  t.test('a', () => {});\n  test('b', () => { test('c', () => {}); });\n});\nconst o = { concurrency: 1 };");
+    assert.deepEqual(findSubtestsAndConcurrency(a).map((v) => v.line), [2, 3, 3, 5]);
   });
 });
 

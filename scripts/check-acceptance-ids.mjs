@@ -15,6 +15,8 @@
 //   第 9a 點 非骨架測試本體至少有一個 expect…／assert… 呼叫
 //   第 9b 點 同一檔案「外層 describe 路徑＋名稱」不得重複
 //   第 9c 點 tests/acceptance/unit/ 必須自 tests/support/assertions.mjs 匯入 assert，不得匯入 node:assert 等
+//   第 9d 點 樣板字面值的測試名稱：固定前綴（第一個 ${ 之前）非空，且同一檔案中不是其他名稱或樣板前綴的前綴（v0.6.1）
+//   第 9e 點 tests/acceptance/unit/ 不得使用子測試與 concurrency（v0.6.1）
 //   第 10 點 --no-skip：tests/acceptance/ 有任何骨架即失敗；tests/unit/ 依 v0.4 的略過清單判定
 //
 // 本檔必須只依賴 Node.js 內建模組（驗收測試會把本檔單獨複製到暫存版本庫執行）。
@@ -38,6 +40,8 @@ export const SKIP_OPTION_KEYS = Object.freeze(['skip', 'todo']);
 export const FORBIDDEN_NAMES = Object.freeze(['skip', 'fixme', 'fail', 'todo', 'only', 'expectFailure']);
 /** 第 8 點：`type` 鍵的這些值（`annotation: { type: 'skip' }` 等）即失敗。 */
 export const FORBIDDEN_TYPE_VALUES = Object.freeze(['skip', 'fixme', 'fail']);
+/** 第 9e 點：在測試本體內呼叫即為子測試的名稱（含其任何屬性，例：`test.skip(…)`）。 */
+export const SUBTEST_CALLEES = Object.freeze(['test', 'it', 'describe', 'suite']);
 /** 第 9c 點：無瀏覽器層驗收測試不得匯入的模組。 */
 export const FORBIDDEN_ASSERT_MODULES = Object.freeze(['node:assert', 'node:assert/strict', 'assert', 'assert/strict']);
 
@@ -603,6 +607,149 @@ export function checkAssertImports({ tokens, lineAt }, fileRel, assertionsRel) {
 }
 
 /**
+ * 樣板字面值名稱的固定前綴（第一個 `${` 之前的文字）；不是含 `${` 的樣板時為 null。
+ * @param {{ name: string|null, literal: string|null }} call
+ */
+export function templatePrefix(call) {
+  if (call.literal !== 'template' || typeof call.name !== 'string' || !call.name.includes('${')) return null;
+  return call.name.slice(0, call.name.indexOf('${'));
+}
+
+/**
+ * 第 9d 點（v0.6.1）：`test(`、`it(`、`describe(`、`test.describe(`（含其修飾變體）的第一個參數為含 `${` 的樣板字面值時：
+ * (1) 固定前綴去除前後空白後必須非空；(2) 同一檔案中，任一樣板前綴不得是另一個測試名稱（字串字面值或不含 `${` 的樣板）
+ * 或另一個樣板前綴的前綴（含相等）。理由：12.2.1 第 4 項以前綴比對樣板名稱的執行結果。
+ * 前綴為空的樣板只回報 (1)。
+ * @param {ReturnType<typeof analyzeSource>} analysis
+ * @returns {Array<{ line: number, message: string }>}
+ */
+export function findTemplateNameIssues({ calls }) {
+  const named = calls.filter((c) => c.name !== null);
+  const out = [];
+  for (const c of named) {
+    const prefix = templatePrefix(c);
+    if (prefix === null) continue;
+    if (prefix.trim() === '') {
+      out.push({ line: c.line, message: `樣板名稱的固定前綴為空：${JSON.stringify(c.name)}` });
+      continue;
+    }
+    const clash = named.find((o) => {
+      if (o === c) return false;
+      const other = templatePrefix(o);
+      return (other === null ? o.name : other).startsWith(prefix);
+    });
+    if (clash) {
+      out.push({
+        line: c.line,
+        message: `樣板名稱前綴不唯一：${JSON.stringify(prefix)} 是第 ${clash.line} 行 ${JSON.stringify(clash.name)} 的前綴`,
+      });
+    }
+  }
+  return out;
+}
+
+/** 呼叫 tokens[openIdx]（`(`）的最上層參數：每個參數的 [起, 迄) token 範圍。 */
+function callArguments(tokens, openIdx, closeIdx) {
+  const args = [];
+  let depth = 0;
+  let start = openIdx + 1;
+  for (let k = openIdx + 1; k < closeIdx; k++) {
+    const t = tokens[k];
+    if (t.type === 'punct' && '([{'.includes(t.value)) depth++;
+    else if (t.type === 'punct' && ')]}'.includes(t.value)) depth--;
+    else if (depth === 0 && isPunct(t, ',')) {
+      args.push([start, k]);
+      start = k + 1;
+    }
+  }
+  if (start < closeIdx) args.push([start, closeIdx]);
+  return args;
+}
+
+/**
+ * 從 p 開始的參數是否為函式（箭頭函式或 function 運算式）；是時回傳第一個參數的名稱（解構或沒有參數時為 null）。
+ * @returns {null | { param: string|null }}
+ */
+function functionAt(tokens, p) {
+  let q = p;
+  const ident = (k, v) => tokens[k] && tokens[k].type === 'ident' && (v === undefined || tokens[k].value === v);
+  if (ident(q, 'async') && (isPunct(tokens[q + 1], '(') || ident(q + 1))) q++;
+  if (ident(q, 'function')) {
+    q++;
+    if (isPunct(tokens[q], '*')) q++;
+    if (ident(q) && isPunct(tokens[q + 1], '(')) q++;
+    if (!isPunct(tokens[q], '(')) return null;
+  } else if (ident(q) && isArrowAt(tokens, q + 1)) {
+    return { param: tokens[q].value };
+  } else if (!isPunct(tokens[q], '(') || !isArrowAt(tokens, matchingClose(tokens, q) + 1)) {
+    return null;
+  }
+  const first = tokens[q + 1];
+  const after = tokens[q + 2];
+  const simple = ident(q + 1) && (isPunct(after, ',') || isPunct(after, ')') || isPunct(after, '='));
+  return { param: simple ? first.value : null };
+}
+
+/**
+ * 第 9e 點（v0.6.1）：無瀏覽器層驗收測試（tests/acceptance/unit/）不得使用子測試與並行。程式碼中（不含註解與字串資料）：
+ * (1) `test(…)`、`it(…)` 的本體函式內（任何深度，含其中的箭頭函式）呼叫 `test`、`it`、`describe`、`suite` 或其任何屬性
+ *     → 「驗收測試不得使用子測試」；
+ * (2) 測試本體函式的第一個參數（測試情境）的 `.test` 屬性存取或計算屬性 `['test']` → 同上；
+ * (3) 名稱為 `concurrency` 的物件鍵、屬性存取或計算屬性 → 「驗收測試不得設定 concurrency」。
+ * `describe` 本體中的 `test`、`it`（套件成員）與 RegExp 的 `.test(…)` 不受限。
+ * @param {ReturnType<typeof analyzeSource>} analysis
+ * @returns {Array<{ line: number, message: string }>}
+ */
+export function findSubtestsAndConcurrency({ tokens, calls, lineAt }) {
+  const SUBTEST = '驗收測試不得使用子測試';
+  const out = [];
+  const reported = new Set();
+  const report = (k, message) => {
+    if (reported.has(k)) return;
+    reported.add(k);
+    out.push({ line: lineAt(tokens[k].pos), message });
+  };
+  for (const c of calls) {
+    if (c.kind !== 'test') continue;
+    for (const [from, to] of callArguments(tokens, c.openIdx, c.closeIdx)) {
+      const fn = functionAt(tokens, from);
+      if (!fn) continue;
+      for (let k = from; k < to; k++) {
+        const t = tokens[k];
+        if (t.type !== 'ident' || isPunct(tokens[k - 1], '.')) continue;
+        if (SUBTEST_CALLEES.includes(t.value)) {
+          let j = k + 1;
+          while (isPunct(tokens[j], '.') && tokens[j + 1] && tokens[j + 1].type === 'ident') j += 2;
+          if (isPunct(tokens[j], '(')) report(k, `${SUBTEST}（${t.value}${j > k + 1 ? '.…' : ''}(…) 在測試本體內）`);
+        }
+        if (fn.param !== null && t.value === fn.param) {
+          let j = k + 1;
+          if (isPunct(tokens[j], '?') && isPunct(tokens[j + 1], '.')) j++;
+          const dotTest = isPunct(tokens[j], '.') && tokens[j + 1] && tokens[j + 1].type === 'ident' && tokens[j + 1].value === 'test';
+          const computedTest = isPunct(tokens[j], '[') && tokens[j + 1] &&
+            (tokens[j + 1].type === 'string' || tokens[j + 1].type === 'template') && tokens[j + 1].value === 'test' &&
+            isPunct(tokens[j + 2], ']');
+          if (dotTest || computedTest) report(k, `${SUBTEST}（${t.value}${dotTest ? '.test' : "['test']"}）`);
+        }
+      }
+    }
+  }
+  for (let k = 0; k < tokens.length; k++) {
+    const t = tokens[k];
+    if (t.value !== 'concurrency') continue;
+    const prev = tokens[k - 1];
+    const next = tokens[k + 1];
+    const access = t.type === 'ident' && isPunct(prev, '.');
+    const computed = (t.type === 'string' || t.type === 'template') && isPunct(prev, '[') && isPunct(next, ']');
+    const key = (isPunct(prev, '{') || isPunct(prev, ',')) &&
+      ((t.type === 'ident' && (isPunct(next, ':') || isPunct(next, ',') || isPunct(next, '}') || isPunct(next, '('))) ||
+       ((t.type === 'string' || t.type === 'template') && isPunct(next, ':')));
+    if (access || computed || key) report(k, '驗收測試不得設定 concurrency');
+  }
+  return out.sort((a, b) => a.line - b.line);
+}
+
+/**
  * 第 9b 點：同一檔案「外層 describe 名稱路徑＋測試名稱」重複的測試。
  * @param {Array<{ name: string, kind: string, path: Array<string|null>, line: number }>} tests
  * @returns {Array<{ line: number, message: string }>}
@@ -726,8 +873,10 @@ export function runCheck({
       }
     }
     for (const v of findDuplicateNames(a.tests)) violate(file, v.line, '12.2 第 9b 點', v.message);
+    for (const v of findTemplateNameIssues(a)) violate(file, v.line, '12.2 第 9d 點', v.message);
     if (layer === 'unit') {
       for (const v of checkAssertImports(a, file, assertionsRel)) violate(file, v.line, '12.2 第 9c 點', v.message);
+      for (const v of findSubtestsAndConcurrency(a)) violate(file, v.line, '12.2 第 9e 點', v.message);
     }
   }
 
