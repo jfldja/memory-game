@@ -11,7 +11,8 @@
 //   2. 非骨架的略過：結果為略過，但同一檔案沒有同名的最上層骨架宣告（todo 一律視為非骨架）
 //   3. 骨架略過（只在 --no-skip）
 //   4. 沒有執行：靜態掃描到的每個測試在同一檔案的結果中至少有一筆名稱相符者；每個 describe 名稱出現在
-//      某筆結果的外層路徑中；該層每個測試檔至少有一筆結果
+//      某筆結果的外層路徑中；該層每個測試檔至少有一筆結果。樣板名稱以第一個 ${ 之前的固定文字為前綴比對；
+//      前綴去除前後空白後為空時不比對任何結果（v0.6.1；12.2 第 9d 點在靜態檢查就拒絕，本項是第二道）
 //   5. 編號沒有通過的執行結果（只在 --no-skip）
 //   6. 沒有執行任何斷言，或有失敗的斷言被吞掉：每筆非略過且通過的結果，斷言執行次數 ≥ 1、失敗次數為 0；
 //      缺少計數資料也失敗
@@ -66,11 +67,25 @@ export function statusOf(r) {
   return 'failed';
 }
 
+/**
+ * 樣板名稱的固定前綴（第一個 `${` 之前的文字）；不是含 `${` 的樣板時為 null。
+ * 前綴去除前後空白後為空時回傳 ''（v0.6.1：不以前綴比對任何結果）。
+ */
+function templatePrefixOf(staticTest) {
+  if (staticTest.literal !== 'template' || !staticTest.name.includes('${')) return null;
+  const prefix = staticTest.name.slice(0, staticTest.name.indexOf('${'));
+  return prefix.trim() === '' ? '' : prefix;
+}
+
+/** 以前綴比對：前綴為空（含只有空白）時不與任何名稱相符。 */
+function prefixMatches(prefix, name) {
+  return prefix !== '' && typeof name === 'string' && name.startsWith(prefix);
+}
+
 function staticNameMatches(staticTest, name) {
   if (typeof name !== 'string') return false;
-  if (staticTest.literal === 'template' && staticTest.name.includes('${')) {
-    return name.startsWith(staticTest.name.slice(0, staticTest.name.indexOf('${')));
-  }
+  const prefix = templatePrefixOf(staticTest);
+  if (prefix !== null) return prefixMatches(prefix, name);
   return name === staticTest.name;
 }
 
@@ -134,9 +149,9 @@ export function evaluateResults({ layer, staticTests, staticFiles, results, erro
   for (const s of staticTests) {
     const inFile = results.filter((r) => r.file === s.file);
     if (s.kind === 'describe') {
-      if (s.name.includes('${') && s.literal === 'template') {
-        const prefix = s.name.slice(0, s.name.indexOf('${'));
-        if (!inFile.some((r) => (r.path ?? []).some((p) => typeof p === 'string' && p.startsWith(prefix)) || (r.kind === 'suite' && staticNameMatches(s, r.name)))) {
+      const prefix = templatePrefixOf(s);
+      if (prefix !== null) {
+        if (!inFile.some((r) => (r.path ?? []).some((p) => prefixMatches(prefix, p)) || (r.kind === 'suite' && staticNameMatches(s, r.name)))) {
           fail(4, s, `describe ${JSON.stringify(s.name)} 沒有出現在任何執行結果中`);
         }
       } else if (!inFile.some((r) => (r.path ?? []).includes(s.name) || (r.kind === 'suite' && r.name === s.name))) {
