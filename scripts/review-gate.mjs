@@ -1,4 +1,5 @@
-// EQ-11 審查紀錄判定（spec.md 第 13 節、review-process.md 第 2、4 節 v0.5.1；偵測形式依 DQ-13 (b)）。只用 Node.js 內建模組。
+// EQ-11 審查紀錄判定（spec.md 第 13 節、review-process.md 第 2、4 節與 4.1 v0.6.1；偵測形式依 DQ-13 (b)，
+// 拒絕規則 X1～X7、F2′、F9、表格邊界 T3、T4 依 DQ-14 (b)）。只用 Node.js 內建模組與本目錄的 detection.mjs、check-pr-body.mjs。
 //
 // 在 pull_request_target／issue_comment 工作流程中執行，只執行預設分支上的本檔，
 // 不簽出、不執行 PR 的程式碼。所需環境變數：
@@ -14,7 +15,10 @@
 // 紀錄格式採白名單（review-process.md 第 2 節）：任何一處不符即整則無效，不嘗試解讀。
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseAuthorSessionsRaw, normalizeSessionId } from './check-pr-body.mjs';
+import { validateAuthorSection, normalizeSessionId } from './check-pr-body.mjs';
+import { fieldForm, stripHtml, firstCharRule, charRuleReason, HTML_TAG } from './detection.mjs';
+
+export { fieldForm };
 
 export const MARKER = '<!-- review-record v1 -->';
 export const STATUS_CONTEXT = 'review-record';
@@ -34,44 +38,15 @@ const FIELDS = Object.freeze([
   { name: '審查者', label: '審查者:', strict: /^- 審查者：(.+)，工作階段 (.+)$/ },
 ]);
 
-/** 不可見格式字元（Cf），以及換行、定位字元以外的控制字元（CRLF 先轉為 LF）。 */
-const INVISIBLE = /[\p{Cf}\u0000-\u0008\u000B-\u001F\u007F-\u009F]/u;
-
 function toLines(body) {
   return String(body ?? '').replace(/\r\n/g, '\n').split('\n');
-}
-
-/** 重複套用 fn 直到結果不再改變（不動點）。 */
-function fixpoint(s, fn) {
-  for (let prev = null; prev !== s; ) [prev, s] = [s, fn(s)];
-  return s;
-}
-
-/** F2：刪除 `<!--`、`-->` 分隔符號（保留其間文字）與 HTML 標籤；`<版本>` 等 `<` 後非 ASCII 字母者不是標籤。 */
-const stripHtml = (s) => fixpoint(s, (t) => t.replace(/<!--|-->|<\/?[A-Za-z][^<>]*>/g, ''));
-/** F3：連結與圖片 `[文字](網址)`、`![文字](網址)` 換成文字。 */
-const stripLinks = (s) => fixpoint(s, (t) => t.replace(/!?\[([^[\]]*)\]\([^()]*\)/g, '$1'));
-
-/**
- * 欄位偵測形式（review-process.md 第 4 節「欄位偵測形式 fieldForm」，DQ-13 (b)）：F1～F8 依序各套用一次，
- * F2、F3 重複到不動點。只用來「找出看似某欄位的行」；合法與否一律以原文的逐字格式比對。
- */
-export function fieldForm(line) {
-  let s = String(line).normalize('NFKC'); // F1
-  s = stripHtml(s); // F2
-  s = stripLinks(s); // F3
-  s = s.replace(/\\(?=[!-\/:-@[-`{-~])/g, ''); // F4：ASCII 標點之前的反斜線
-  s = s.replace(/[*_`~\s]/g, ''); // F5
-  s = s.replace(/\[[xX]?\]/g, ''); // F6：核取方塊（F5 已刪除其中的空白）
-  s = s.replace(/^[^\p{L}]+/u, ''); // F7：行首最長的非字母前綴
-  return s.toLowerCase(); // F8
 }
 
 const HTML_TABLE_TAG = /<\/?(?:table|thead|tbody|tr|td|th)(?![\p{L}\p{N}])/iu;
 
 /**
  * 表格列偵測（review-process.md 第 4 節「表格列偵測 isTableLine」）：
- * T1：NFKC 後含 HTML 表格標籤；T2：NFKC、F2 後去除前後空白，刪除行首最長的「非字母且不是 `|`」前綴後以 `|` 開頭。
+ * T1：NFKC 後含 HTML 表格標籤；T2：NFKC、F2′ 後去除前後空白，刪除行首最長的「非字母且不是 `|`」前綴後以 `|` 開頭。
  */
 export function isTableLine(line) {
   const s = String(line).normalize('NFKC');
@@ -114,21 +89,37 @@ export function hasMarker(body) {
 }
 
 /**
- * 是否為針對 headSha 的候選紀錄（review-process.md 第 4 節第 3 步）：凡偵測形式以「針對commit:」
- * 開頭的行，只要任何一行含 head 的完整 SHA 即為候選（即使欄位重複或格式不符），
- * 讓格式錯誤的較晚紀錄不會被略過而使較早的紀錄生效。
+ * 是否為針對 headSha 的候選紀錄（review-process.md 第 4 節第 3 步、4.1「候選的判定」v0.6.1）：
+ * 原文任何位置含 head 的完整 40 碼 SHA（不分大小寫）即為候選（標記與作者由 evaluate 另外判定）。
+ * 候選集合是 v0.5.1（偵測形式以「針對commit:」開頭的行含 SHA）的超集；較晚的候選只會使判定變為無效，
+ * 不會讓較早的紀錄生效（之後的白名單檢查與「針對 commit 等於 head」照舊）。
  */
 export function isCandidateFor(body, headSha) {
   const sha = String(headSha).toLowerCase();
   if (!FULL_SHA.test(sha)) return false;
-  return toLines(body).some((l) => {
-    const d = fieldForm(l);
-    return d.startsWith('針對commit:') && d.includes(sha);
-  });
+  return String(body ?? '').toLowerCase().includes(sha);
+}
+
+/** T3：表後的下一行必須符合此式或不存在（review-process.md 4.1「表格邊界」）。 */
+const BLANK_LINE = /^[ \t]*$/;
+/** T4：去除所有 `\s` 後符合此式、且含 `-`、並含 `|` 或 `:` 的行是 GFM 分隔列寫法（任何容器中）。 */
+const SEPARATOR_LIKE = /^(?:>|[-+*]|[0-9]{1,9}[.)])*[|:-]+$/;
+
+/** T4 的判定：一行是否為（任何容器中的）GFM 分隔列寫法。 */
+export function isSeparatorLike(line) {
+  const s = String(line).replace(/\s/g, '');
+  return SEPARATOR_LIKE.test(s) && s.includes('-') && (s.includes('|') || s.includes(':'));
+}
+
+/** X7 的判定：以 F2′ 的文法刪除一行中所有完整的開始與結束標籤後，仍含 `<` 或 `</` 緊接 ASCII 字母。 */
+export function hasUnclosedTag(line) {
+  return /<\/?[A-Za-z]/.test(String(line).replace(HTML_TAG, ''));
 }
 
 /**
- * 依白名單驗證一則紀錄（review-process.md 第 2 節「規則」、第 4 節第 5 步第 1 項）。
+ * 依白名單驗證一則紀錄（review-process.md 第 2 節「規則」、第 4 節第 5 步第 1 項、4.1）。
+ * 檢查順序（4.1「檢查順序」）：X1 → X2 → X3 → X4 → X5 → X6（逐行）→ X7（逐行）→ 第 1 行標記 → 欄位行（F1～F9）
+ * → 表格列（T1、T2 的連續性與逐字格式）→ T3 → T4 → R 列的重複、缺項、清單外、結果值、「不適用」理由 → 審查者識別格式。
  * 回報第一個不符之處；全部符合時回傳解析結果。
  * @param {string} body
  * @returns {{ ok: false, reason: string } | { ok: true, result: string, sha: string, reviewerSession: string, items: Array<{ id: string, result: string, note: string }> }}
@@ -136,8 +127,15 @@ export function isCandidateFor(body, headSha) {
 export function validateRecord(body) {
   const text = String(body ?? '').replace(/\r\n/g, '\n');
   const bad = (reason) => ({ ok: false, reason });
-  if (INVISIBLE.test(text)) return bad('含不可見字元');
+  const charRule = firstCharRule(text); // X1～X5
+  if (charRule) return bad(charRuleReason(charRule));
   const lines = text.split('\n');
+  for (let k = 1; k < lines.length; k++) {
+    if (lines[k].includes('<!') || lines[k].includes('<?')) return bad(`含 HTML 註解或宣告：第 ${k + 1} 行`); // X6
+  }
+  for (let k = 0; k < lines.length; k++) {
+    if (hasUnclosedTag(lines[k])) return bad(`HTML 標籤未在同一行結束：第 ${k + 1} 行`); // X7
+  }
   if (lines[0].trimEnd() !== MARKER) return bad('第一行不是紀錄標記');
 
   // 欄位行：各恰好一行，且為逐字格式
@@ -179,6 +177,14 @@ export function validateRecord(body) {
       rows.push({ id: cells[0], result: cells[2], note: cells[3] });
     }
     if (tableIdx.length < 2) return bad(`表格格式不符：第 ${start + 1} 行`);
+    // T3：逐項結果表最後一列的下一行必須是空行或不存在（GFM 表格延續到空行為止）
+    const next = tableIdx[tableIdx.length - 1] + 1;
+    if (next < lines.length && !BLANK_LINE.test(lines[next])) return bad(`表格格式不符：第 ${next + 1} 行`);
+  }
+  // T4：逐項結果表分隔列以外不得有 GFM 分隔列寫法（沒有表格時每一行都判定）
+  const separatorIdx = tableIdx.length > 0 ? tableIdx[0] + 1 : -1;
+  for (let k = 0; k < lines.length; k++) {
+    if (k !== separatorIdx && isSeparatorLike(lines[k])) return bad(`表格格式不符：第 ${k + 1} 行`);
   }
 
   const seen = new Set();
@@ -233,7 +239,10 @@ export function evaluate({ headSha, prBody, prUrl = null, comments }) {
   if (!rec.ok) return fail(rec.reason);
   if (rec.sha !== headSha) return fail('欄位重複或格式不符：針對 commit');
 
-  const authors = parseAuthorSessionsRaw(prBody).map(normalizeSessionId);
+  // 第 2 步：作者段落依 4.1「作者段落」檢查（與 pr-body 同一個函式）；不符或識別格式不符皆為 failure
+  const section = validateAuthorSection(prBody);
+  if (!section.ok) return fail('作者工作階段識別格式不符');
+  const authors = section.sessions.map(normalizeSessionId);
   if (authors.some((a) => a === null)) return fail('作者工作階段識別格式不符');
   if (authors.includes(rec.reviewerSession)) return fail('審查者與作者相同或未標明');
 
