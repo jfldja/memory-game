@@ -29,7 +29,8 @@ import { fileURLToPath } from 'node:url';
 export const EXEMPT_IDS = Object.freeze(['NFR-1']);
 
 /** 收集名稱的呼叫：base 加上可選的修飾（spec.md 12.2 第 6 點）。 */
-export const TEST_BASES = Object.freeze(['test', 'it', 'describe', 'test.describe']);
+// v0.6.2（12.2 第 9d 點的修飾變體含 `.serial`）：Playwright 的 `test.describe.serial(`、`test.describe.parallel(` 也是 describe
+export const TEST_BASES = Object.freeze(['test', 'it', 'describe', 'test.describe', 'test.describe.serial', 'test.describe.parallel']);
 export const TEST_MODIFIERS = Object.freeze(['skip', 'fixme', 'todo', 'only']);
 /** 讓該呼叫被視為略過的修飾（tests/unit/ 的 --no-skip 判定沿用 v0.4 的清單）。 */
 export const SKIP_MODIFIERS = Object.freeze(['skip', 'fixme', 'todo']);
@@ -457,7 +458,7 @@ export function analyzeSource(src) {
     if (name !== null && isPunct(afterFirst, ',') && isPunct(tokens[openIdx + 3], '{')) {
       if (objectHasSkipKey(tokens, openIdx + 3)) skipped = true;
     }
-    const kind = base.endsWith('describe') ? 'describe' : 'test';
+    const kind = base === 'describe' || base.startsWith('test.describe') ? 'describe' : 'test';
 
     // 骨架宣告的形狀（不論本體是否為空）：最上層的 test.skip(<字串>, <箭頭函式>)
     let skeletonShape = false;
@@ -648,6 +649,16 @@ export function findTemplateNameIssues({ calls }) {
   return out;
 }
 
+/** tokens[j]、tokens[j + 1] 是否為可選串連 `?.`（tokenizer 把它切成兩個相鄰的 punct）。 */
+function isOptionalChain(tokens, j) {
+  return isPunct(tokens[j], '?') && isPunct(tokens[j + 1], '.') && tokens[j + 1].pos === tokens[j].pos + 1;
+}
+
+/** 字串或樣板字面值 token。 */
+function isLiteral(tok) {
+  return Boolean(tok) && (tok.type === 'string' || tok.type === 'template');
+}
+
 /** 呼叫 tokens[openIdx]（`(`）的最上層參數：每個參數的 [起, 迄) token 範圍。 */
 function callArguments(tokens, openIdx, closeIdx) {
   const args = [];
@@ -718,18 +729,31 @@ export function findSubtestsAndConcurrency({ tokens, calls, lineAt }) {
         const t = tokens[k];
         if (t.type !== 'ident' || isPunct(tokens[k - 1], '.')) continue;
         if (SUBTEST_CALLEES.includes(t.value)) {
+          // 屬性鏈：`.名稱`、`['名稱']`、可選串連 `?.名稱`、`?.['名稱']`；呼叫：`(` 或可選呼叫 `?.(`
           let j = k + 1;
-          while (isPunct(tokens[j], '.') && tokens[j + 1] && tokens[j + 1].type === 'ident') j += 2;
-          if (isPunct(tokens[j], '(')) report(k, `${SUBTEST}（${t.value}${j > k + 1 ? '.…' : ''}(…) 在測試本體內）`);
+          for (;;) {
+            if (isOptionalChain(tokens, j)) {
+              if (isPunct(tokens[j + 2], '(')) { j += 2; break; }
+              j += 2;
+              if (isPunct(tokens[j], '[') && isLiteral(tokens[j + 1]) && isPunct(tokens[j + 2], ']')) { j += 3; continue; }
+              if (tokens[j] && tokens[j].type === 'ident') { j++; continue; }
+              break;
+            }
+            if (isPunct(tokens[j], '.') && tokens[j + 1] && tokens[j + 1].type === 'ident') { j += 2; continue; }
+            if (isPunct(tokens[j], '[') && isLiteral(tokens[j + 1]) && isPunct(tokens[j + 2], ']')) { j += 3; continue; }
+            break;
+          }
+          if (isPunct(tokens[j], '(')) report(k, `${SUBTEST}（${t.value}${j > k + 1 ? '…' : ''}(…) 在測試本體內）`);
         }
         if (fn.param !== null && t.value === fn.param) {
-          let j = k + 1;
-          if (isPunct(tokens[j], '?') && isPunct(tokens[j + 1], '.')) j++;
-          const dotTest = isPunct(tokens[j], '.') && tokens[j + 1] && tokens[j + 1].type === 'ident' && tokens[j + 1].value === 'test';
-          const computedTest = isPunct(tokens[j], '[') && tokens[j + 1] &&
-            (tokens[j + 1].type === 'string' || tokens[j + 1].type === 'template') && tokens[j + 1].value === 'test' &&
+          // `.test`、`['test']`，以及可選串連 `?.test`、`?.['test']`
+          const optional = isOptionalChain(tokens, k + 1);
+          const j = optional ? k + 3 : k + 1; // 屬性名稱或 `[` 的位置（一般存取時 tokens[j] 為 `.`）
+          const name = optional ? tokens[j] : isPunct(tokens[j], '.') ? tokens[j + 1] : null;
+          const dotTest = Boolean(name) && name.type === 'ident' && name.value === 'test';
+          const computedTest = isPunct(tokens[j], '[') && isLiteral(tokens[j + 1]) && tokens[j + 1].value === 'test' &&
             isPunct(tokens[j + 2], ']');
-          if (dotTest || computedTest) report(k, `${SUBTEST}（${t.value}${dotTest ? '.test' : "['test']"}）`);
+          if (dotTest || computedTest) report(k, `${SUBTEST}（${t.value}${optional ? '?.' : ''}${dotTest ? (optional ? 'test' : '.test') : "['test']"}）`);
         }
       }
     }

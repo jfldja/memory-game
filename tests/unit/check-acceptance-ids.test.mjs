@@ -764,6 +764,21 @@ describe('runCheck v0.6.1：第 9d 點（樣板字面值的測試名稱）', () 
     assert.match(e2e[0].message, /^樣板名稱的固定前綴為空/);
   });
 
+  test('test.describe.serial(…)、test.describe.parallel(…) 與其修飾變體也收集為 describe，9d 適用', () => {
+    for (const src of [
+      "test.describe.serial(`${a}`, () => { test('X', async () => { expect(1).toBe(1); }); });\n",
+      "test.describe.parallel(` ${a}`, () => { test('X', async () => { expect(1).toBe(1); }); });\n",
+      "test.describe.serial.only(`${a}`, () => { test('X', async () => { expect(1).toBe(1); }); });\n",
+    ]) {
+      const v = only9d(check(e2eFile(src)));
+      assert.equal(v.length, 1, src);
+      assert.match(v[0].message, /^樣板名稱的固定前綴為空/);
+    }
+    const a = analyzeSource("test.describe.serial('組', () => { test('X', async () => {}); });");
+    assert.deepEqual(a.tests.map((t) => [t.name, t.kind, t.path]), [['組', 'describe', []], ['X', 'test', ['組']]]);
+    assert.deepEqual(findTemplateNameIssues(analyzeSource("test.describe.serial(`${'x'}`, () => {});")).map((v) => v.message.slice(0, 11)), ['樣板名稱的固定前綴為空']);
+  });
+
   test('v0.6.2：修飾變體的樣板前綴也參與「前綴不唯一」的比對', () => {
     const v = only9d(check(unitFile("test.skip(`組 ${a}`, () => {});\ntest('組 甲', () => { assert.ok(1); });\n")));
     assert.ok(v.some((x) => /^樣板名稱前綴不唯一/.test(x.message)), JSON.stringify(v));
@@ -825,6 +840,25 @@ describe('runCheck v0.6.1：第 9e 點（無瀏覽器層驗收測試不得使用
       assert.equal(v[0].message, '驗收測試不得設定 concurrency');
     });
   }
+
+  for (const [label, src] of [
+    ["可選串連的計算屬性 t?.['test'](…)", "test('X', async (t) => { assert.ok(1); await t?.['test']('子', () => {}); });"],
+    ['可選呼叫 test?.(…)', "test('X', () => { assert.ok(1); test?.('子', () => {}); });"],
+    ['屬性的可選呼叫 test.skip?.(…)', "test('X', () => { assert.ok(1); test.skip?.('子', () => {}); });"],
+    ['可選串連的屬性 it?.skip(…)', "test('X', () => { assert.ok(1); it?.skip('子', () => {}); });"],
+    ["計算屬性的呼叫 test['skip'](…)", "test('X', () => { assert.ok(1); test['skip']('子', () => {}); });"],
+  ]) {
+    test(`${label}：失敗「驗收測試不得使用子測試」`, () => {
+      const v = only9e(check(unitFile(src + '\n')));
+      assert.equal(v.length, 1, JSON.stringify(v));
+      assert.match(v[0].message, /^驗收測試不得使用子測試/);
+    });
+  }
+
+  test('對照：三元運算子 `? .5`、`t ? t.name : …` 不被誤判為可選串連', () => {
+    const src = "test('X', (t) => { const a = t ? .5 : 1; const b = t ? t.name : ''; assert.ok(a && b !== undefined); });\n";
+    assert.deepEqual(only9e(check(unitFile(src))), []);
+  });
 
   test('對照：describe 本體中的 test(…)／it(…)、RegExp 的 .test(…)、字串資料與註解中的 t.test( 不誤判', () => {
     const src = [
