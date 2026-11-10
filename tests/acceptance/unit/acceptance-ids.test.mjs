@@ -16,6 +16,7 @@
 // PR-1c 的修改（spec.md v0.6.1 12.2 第 9d、9e、11 點、12.2.1 第 4 項；acceptance-test-plan.md v0.6.1 第 4 節）：
 // 新增 9d（樣板名稱的固定前綴非空、同檔互不為前綴）與 9e（無瀏覽器層不得使用子測試與 concurrency）的反例與對照組；
 // 以 CI 指令執行的反例加入固定前綴為空的樣板名稱（第 4 項）。既有案例的期望不變（v0.6.1 只增加失敗條件）。
+// v0.6.2（簽核後釐清）：9d 涵蓋修飾變體（.serial、.only）；第 4 項的空前綴也套用於樣板 describe 的外層路徑。
 //
 // 注意：
 // - 反例都在暫存版本庫（需求文件、補充驗收檔、檢查腳本與 tests/ 的完整複本）上做，並先確認複本本身通過（對照組）。
@@ -521,7 +522,7 @@ test('AC-EQ-4 反例：無瀏覽器層驗收測試未自 tests/support/assertion
  * 測試資料的其他部分都合乎其他規則（每個測試本體都有斷言呼叫、名稱不重複、無瀏覽器層有匯入），
  * 所以檔案中的每一個違規都必須是目標規則。
  */
-function assertOnlyRuleAt(repo, layer, label, body, rule, text) {
+function assertOnlyRuleAt(repo, layer, label, body, rule, text, alsoExpected = null) {
   const head = layer === 'e2e' ? E2E_HEAD : UNIT_HEAD;
   const src = head + body;
   const line = markedLine(src);
@@ -531,7 +532,8 @@ function assertOnlyRuleAt(repo, layer, label, body, rule, text) {
   assert.deepEqual(r.missing, [], `${label}：失敗原因不得是缺編號`);
   assert.ok(inFile.some((v) => v.line === line && rule.test(v.rule) && v.message.includes(text)),
     `${label}：應在 ${rel}:${line} 以 ${rule}「${text}」失敗；實際 ${JSON.stringify(inFile)}`);
-  const others = r.violations.filter((v) => !rule.test(v.rule));
+  // alsoExpected：寫法本身必然另外違反的規則（例：.only 也違反第 8 點），只允許該規則出現在同一行
+  const others = r.violations.filter((v) => !rule.test(v.rule) && !(alsoExpected && alsoExpected.test(v.rule) && v.line === line));
   assert.deepEqual(others, [], `${label}：只應因目標規則失敗`);
   assert.equal(cli.status, 1, `${label}：CLI 應以 1 結束；stderr=${cli.stderr}`);
   assert.ok(cli.stderr.includes(`${rel}:${line}`), `${label}：CLI 應指出 ${rel}:${line}；stderr=${cli.stderr}`);
@@ -571,6 +573,8 @@ const TEMPLATE_NAME_CASES = [
   ['e2e', '樣板前綴只有空白（test）', `test(\`  \${'${TARGET}'} a\`, async () => { expect(1).toBe(1); }); // ←`, EMPTY_PREFIX],
   ['e2e', '樣板以 ${ 開頭（test.describe）', `test.describe(\`\${'區塊'}\`, () => { // ←\n  test('${TARGET} a', async () => { expect(1).toBe(1); });\n});`, EMPTY_PREFIX],
   ['unit', '樣板以 ${ 開頭（it）', `it(\`\${'${TARGET}'} a\`, () => { assert.ok(true); }); // ←`, EMPTY_PREFIX],
+  // v0.6.2 寫明：修飾變體也檢查（.serial 不違反第 8 點，只有 9d）
+  ['e2e', '樣板以 ${ 開頭（test.describe.serial）', `test.describe.serial(\`\${'區塊'}\`, () => { // ←\n  test('${TARGET} a', async () => { expect(1).toBe(1); });\n});`, EMPTY_PREFIX],
   ['unit', '樣板前綴只有空白（describe）', `describe(\`\\t \${'區塊'}\`, () => { // ←\n  it('${TARGET} a', () => { assert.ok(true); });\n});`, EMPTY_PREFIX],
   // (2) 同一檔案中，樣板前綴是另一個名稱或另一個樣板前綴的前綴（含相等）
   ['e2e', '樣板前綴是字串名稱的前綴', `test('${TARGET} a 一', async () => { expect(1).toBe(1); });\ntest(\`${TARGET} a\${1}\`, async () => { expect(1).toBe(1); }); // ←`, PREFIX_NOT_UNIQUE],
@@ -605,6 +609,9 @@ test('AC-EQ-4 反例：測試名稱為固定前綴為空的樣板字面值、或
   for (const [layer, label, body, text] of TEMPLATE_NAME_CASES) {
     assertOnlyRuleAt(repo, layer, label, body, RULE_9D, text);
   }
+  // v0.6.2 寫明：.only 等第 8 點禁止的修飾變體也檢查 9d（同一行另有第 8 點的違規，是寫法本身必然的）
+  assertOnlyRuleAt(repo, 'e2e', '樣板以 ${ 開頭（test.only）',
+    `test.only(\`\${'${TARGET}'} a\`, async () => { expect(1).toBe(1); }); // ←`, RULE_9D, EMPTY_PREFIX, /第 8 點/);
 });
 
 /** 12.2 第 9e 點的反例（只在 tests/acceptance/unit/）：[說明, 測試資料, 設計指定的失敗文字]。 */
@@ -616,13 +623,16 @@ const SUBTEST_CASES = [
   ['測試本體內 suite()', `test('${TARGET} a', () => {\n  assert.ok(true);\n  suite('子區塊', () => {}); // ←\n});`, NO_SUBTEST],
   ['it 本體內 test()', `it('${TARGET} a', () => {\n  assert.ok(true);\n  test('子測試', () => { assert.ok(true); }); // ←\n});`, NO_SUBTEST],
   ['巢狀箭頭函式內 it()', `test('${TARGET} a', () => {\n  assert.ok(true);\n  [1, 2].forEach((n) => {\n    it(\`子測試 \${n}\`, () => { assert.ok(n); }); // ←\n  });\n});`, NO_SUBTEST],
-  ['測試本體內呼叫 test 的屬性', `test('${TARGET} a', () => {\n  assert.ok(true);\n  test.describe('子區塊', () => {}); // ←\n});`, NO_SUBTEST],
+  ['測試本體內 test?.()（可選呼叫）', `test('${TARGET} a', () => {\n  assert.ok(true);\n  test?.('子測試', () => { assert.ok(true); }); // ←\n});`, NO_SUBTEST],
+  ['測試本體內呼叫 test 的屬性',`test('${TARGET} a', () => {\n  assert.ok(true);\n  test.describe('子區塊', () => {}); // ←\n});`, NO_SUBTEST],
   ['describe 內測試的本體內 test()', `describe('區塊', () => {\n  it('${TARGET} a', async () => {\n    assert.ok(true);\n    await test('子測試', () => { assert.ok(true); }); // ←\n  });\n});`, NO_SUBTEST],
   // (2) 測試情境（本體函式第一個參數）的 .test／['test']
   ['t.test()', `test('${TARGET} a', async (t) => {\n  assert.ok(true);\n  await t.test('子測試', () => { assert.ok(true); }); // ←\n});`, NO_SUBTEST],
   ["t['test']()", `test('${TARGET} a', async (t) => {\n  assert.ok(true);\n  await t['test']('子測試', () => { assert.ok(true); }); // ←\n});`, NO_SUBTEST],
   ['以其他名稱的測試情境 .test', `it('${TARGET} a', async (ctx) => {\n  assert.ok(true);\n  await ctx.test('子測試', () => { assert.ok(true); }); // ←\n});`, NO_SUBTEST],
-  ['只存取 t.test 不呼叫', `test('${TARGET} a', (t) => {\n  const sub = t.test; // ←\n  assert.ok(sub);\n});`, NO_SUBTEST],
+  ['t?.test()（可選鏈）', `test('${TARGET} a', async (t) => {\n  assert.ok(true);\n  await t?.test('子測試', () => { assert.ok(true); }); // ←\n});`, NO_SUBTEST],
+  ["t?.['test']()（可選鏈的計算屬性）", `test('${TARGET} a', async (t) => {\n  assert.ok(true);\n  await t?.['test']('子測試', () => { assert.ok(true); }); // ←\n});`, NO_SUBTEST],
+  ['只存取 t.test 不呼叫',`test('${TARGET} a', (t) => {\n  const sub = t.test; // ←\n  assert.ok(sub);\n});`, NO_SUBTEST],
   // (3) concurrency 的物件鍵、屬性存取、計算屬性
   ['測試選項 { concurrency: 2 }', `test('${TARGET} a', { concurrency: 2 }, () => { assert.ok(true); }); // ←`, NO_CONCURRENCY],
   ['describe 選項 concurrency', `describe('區塊', { concurrency: true }, () => { // ←\n  it('${TARGET} a', () => { assert.ok(true); });\n});`, NO_CONCURRENCY],
@@ -729,6 +739,8 @@ test('AC-EQ-4 反例：以 CI 的指令執行時，零斷言、提前返回、�
   // 對照組：固定前綴非空的樣板名稱，以前綴比對到執行結果而通過（第 4 項）
   const templ = runUnitLayer(dir, `${head}test(\`${TARGET} \${'a'}\`, () => { assert.equal(1 + 1, 2); });\n`);
   assert.equal(templ.status, 0, `前綴非空的樣板名稱應通過；${templ.stdout}${templ.stderr}`);
+  const templDescribe = runUnitLayer(dir, `${head}describe(\`區塊 \${1}\`, () => {\n  test('${TARGET} a', () => { assert.equal(1 + 1, 2); });\n});\n`);
+  assert.equal(templDescribe.status, 0, `前綴非空的樣板 describe 名稱應通過；${templDescribe.stdout}${templDescribe.stderr}`);
 
   // 骨架：不加 --no-skip 通過，--no-skip 失敗（第 3 項）
   const skeletonSrc = `${head}test.skip('${TARGET} a', () => {});\n`;
@@ -748,6 +760,8 @@ test('AC-EQ-4 反例：以 CI 的指令執行時，零斷言、提前返回、�
     // v0.6.1：樣板名稱的固定前綴為空時不以前綴比對任何結果，即使有執行也判定為沒有執行（第 4 項；第 9d 點的第二道）
     ['樣板名稱以 ${ 開頭', `test(\`\${'${TARGET}'} a\`, () => { assert.ok(true); });`, /第 4 項/],
     ['樣板名稱的前綴只有空白', `test(\`  \${'${TARGET}'} a\`, () => { assert.ok(true); });`, /第 4 項/],
+    // v0.6.2 寫明：以樣板命名的 describe 也是空前綴不與任何外層路徑相符
+    ['describe 名稱以 ${ 開頭', `describe(\`\${'區塊'}\`, () => {\n  test('${TARGET} a', () => { assert.ok(true); });\n});`, /第 4 項/],
   ];
   for (const [label, body, item] of cases) {
     const src = head + body + '\n';
