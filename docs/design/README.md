@@ -4,7 +4,7 @@
 |---|---|
 | 版本 | 0.5（PR-1 審查 N-1～N-6 與實作、測試 agent 回報的修正；新增 PR-1b；含設計審查第 3 輪修訂） |
 | 日期 | 2026-11-09 |
-| 狀態 | v0.4 已簽核（2026-11-09 16:12，產品負責人，見第 5 節）；**v0.5 待簽核**。DQ-1～DQ-10 已關閉；DQ-11、DQ-12 待決定 |
+| 狀態 | v0.5 已簽核（2026-11-10 16:06（Asia/Taipei），產品負責人，見第 5 節）；v0.4 已簽核（2026-11-09 16:12）。DQ-1～DQ-12 已全部關閉 |
 | 依據 | docs/requirements.md v1.1（已簽核）；docs/workflow.md v0.2；docs/design/design-review.md（設計審查紀錄）；產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定；PR #1 審查紀錄（N-1～N-6）與實作、測試 agent 的回報 |
 | 撰寫 | 設計 agent（agent-dev-workflow 第 3 節「設計 agent」） |
 
@@ -62,7 +62,7 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 4. 牌面草稿的美觀度與第 3 關難度（cards.md 第 4 節）。
 5. 假設 DA-1、DA-2、DA-3、DA-5（spec.md 第 17 節）。
 
-## 3. 待決問題（DQ-1～DQ-10 已關閉；DQ-11、DQ-12 待決定）
+## 3. 待決問題（DQ-1～DQ-12 已全部關閉）
 
 產品負責人於 **2026-11-09 16:02** 決定：DQ-1～DQ-10 全部採用建議。DQ-11、DQ-12 為 v0.5 新增。各項的選項、決定與寫入的章節見 spec.md 第 16 節。
 
@@ -78,8 +78,8 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 | DQ-8 | EQ-2 的啟動例外 | 接受 (1) 初始 commit 直接推送、(2) PR-1 先於保護合併；設計文件隨 PR-1 合併，不發生 (3)；產品負責人在 UAT 紀錄或 release notes 註明 | spec.md 12.6「EQ-2 啟動例外的處理」；verification.md 2.2、2.3；review-process.md 第 5 節 | 已關閉 |
 | DQ-9 | EQ-12 無餘裕，GitHub 延遲時如何處理 | `smoke` 失敗重跑一次並記錄；仍逾時記為外部觀察，由產品負責人判定，不改程式 | spec.md 12.5；verification.md 2.4 | 已關閉 |
 | DQ-10 | Should 需求本輪範圍與補充驗收 | 全部本輪實作；補充驗收全部啟用，`enforced: true` 與骨架隨 PR-1 | spec.md 第 14、15 節；supplementary-acceptance.json；acceptance-test-plan.md 第 3 節 | 已關閉 |
-| DQ-11 | main 上的 review-gate 無法寫入 `review-record` 時如何處理（PR-1b 時的第一次執行、PR-1b 合併後新版的第一次執行，及之後的版本；修正 PR 必然不經它把關） | 待決定；建議 (d) 先開不合併的探測 PR A／B，把第一次執行移到不需合併的 PR；(a) 只限修正它的那一個 PR 接受為啟動例外，作為確實無法寫入時的唯一處理 | spec.md 第 16 節、12.6 步驟 6b、8、8b | 待決定（PR-1b 開啟前） |
-| DQ-12 | AC-EQ-2「CI 失敗的 PR 合併被拒」以什麼驗證 | 待決定；(a) 以 `review-record` 失敗驗證（EQ-11 規定審查檢查屬 CI）；(b) 另以 `unit` 失敗驗證。建議：採 DQ-11 (d) 時兩者都在探測 PR 上做，否則 (a) | spec.md 第 16 節、12.6 步驟 8 | 待決定（PR-1b 開啟前） |
+| DQ-11 | main 上的 review-gate 無法寫入 `review-record` 時如何處理（PR-1b 時的第一次執行、PR-1b 合併後新版的第一次執行，及之後的版本；修正 PR 必然不經它把關） | **採 (d)，以 (a) 為唯一的失敗處理**（2026-11-10 16:06）。原建議 (d) 先開不合併的探測 PR A／B，把第一次執行移到不需合併的 PR；(a) 只限修正它的那一個 PR 接受為啟動例外，作為確實無法寫入時的唯一處理 | spec.md 第 16 節、12.6 步驟 6b、8、8b | 已關閉 |
+| DQ-12 | AC-EQ-2「CI 失敗的 PR 合併被拒」以什麼驗證 | **採 (a)＋(b)，都在探測 PR A 上執行**（2026-11-10 16:06）。原選項：(a) 以 `review-record` 失敗驗證（EQ-11 規定審查檢查屬 CI）；(b) 另以 `unit` 失敗驗證。建議：採 DQ-11 (d) 時兩者都在探測 PR 上做，否則 (a) | spec.md 第 16 節、12.6 步驟 8 | 已關閉 |
 
 ## 4. 修訂紀錄
 
@@ -222,7 +222,7 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 | 日期 | 簽核者 | 簽核的版本 | 待決問題的決定 | 備註 |
 |---|---|---|---|---|
 | 2026-11-09 16:12（Asia/Taipei） | 產品負責人 | 設計文件 v0.4（commit dfca62f）；需求文件 v1.1 | DQ-1～DQ-10 全部採用建議（2026-11-09 16:02） | 產品負責人於對話中回覆「簽核設計」，由統籌 agent 代為記錄 |
-| v0.5 待簽核 | 產品負責人 | 設計文件 v0.5（branch `pr-1b/pre-pr2-fixes`，含設計審查第 3 輪修訂）；需求文件 v1.1 | DQ-11、DQ-12 待決定 | PR-1b 的實作與測試 commit 須在本列簽核之後 |
+| 2026-11-10 16:06（Asia/Taipei） | 產品負責人 | 設計文件 v0.5（branch `pr-1b/pre-pr2-fixes`，commit 951e154，含設計審查第 3 輪修訂）；需求文件 v1.1 | DQ-11 採 (d)，以 (a) 為確實無法寫入狀態時的唯一處理；DQ-12 採 (a)＋(b)，都在探測 PR 上執行 | 產品負責人於對話中回覆「簽核設計 v0.5。DQ-11、DQ-12 採用建議」，由統籌 agent 代為記錄。PR-1b 的實作與測試 commit 須在本列之後 |
 
 簽核日期必須早於第一個實作 PR 的建立日期。
 
@@ -236,3 +236,4 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 | 0.4 | 2026-11-09 | 依 DQ-1～DQ-10 的決定修訂 spec.md、acceptance-test-plan.md、module-test-standards.md、review-process.md、verification.md、cards.md、supplementary-acceptance.json；第 3 節改為已關閉；需求依據改為 v1.1；新增第 3 輪修訂紀錄；設計 skill 升為 1.3。簽核欄維持待簽核 | 產品負責人 2026-11-09 16:02 的決定；需求文件 v1.1 |
 | 0.5 | 2026-11-09 | 依 PR-1 審查紀錄與實作、測試 agent 回報修訂 spec.md、review-process.md、acceptance-test-plan.md、module-test-standards.md、verification.md；新增 PR-1b、DQ-11、DQ-12；第 0 節改為 v0.5 的上工檢查；第 2、3 節加入 v0.5 待決定事項；新增第 4 輪修訂紀錄；第 5 節新增「v0.5 待簽核」一列（v0.4 簽核紀錄不變）；設計 skill 升為 1.4 | PR-1 審查紀錄 N-1～N-6；實作與測試 agent 回報；agent-dev-workflow 1.1 第 4.3 節 |
 | 0.5（第 3 輪審查修訂） | 2026-11-09 | 同一版本內依設計審查第 3 輪修訂 spec.md、review-process.md、acceptance-test-plan.md、module-test-standards.md、verification.md；新增第 5 輪修訂紀錄；第 2、3 節更新 DQ-11、DQ-12；第 0 節 skill 版本改為 1.5；簽核欄維持「v0.5 待簽核」 | design-review.md 設計審查第 3 輪 M-1～M-4、P-1～P-6 |
+| 0.5（簽核） | 2026-11-10 | 記錄產品負責人簽核 v0.5 與 DQ-11、DQ-12 的決定；第 3 節改為全部關閉 | 產品負責人於對話中決定，統籌 agent 代為記錄（同 v0.4 的做法） |
