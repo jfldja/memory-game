@@ -1,4 +1,4 @@
-// EQ-11 審查紀錄判定（spec.md 第 13 節、review-process.md 第 2、4 節 v0.5）。只用 Node.js 內建模組。
+// EQ-11 審查紀錄判定（spec.md 第 13 節、review-process.md 第 2、4 節 v0.5.1；偵測形式依 DQ-13 (b)）。只用 Node.js 內建模組。
 //
 // 在 pull_request_target／issue_comment 工作流程中執行，只執行預設分支上的本檔，
 // 不簽出、不執行 PR 的程式碼。所需環境變數：
@@ -41,22 +41,42 @@ function toLines(body) {
   return String(body ?? '').replace(/\r\n/g, '\n').split('\n');
 }
 
-/**
- * 偵測用的正規化（review-process.md 第 4 節第 3 步、第 5 步第 1 項）：NFKC、去除 Markdown
- * 強調符號與空白、去除行首的清單、引用與標題符號、英文轉小寫。只用來「找出看似某欄位的行」；
- * 判定合法與否一律以原文的逐字格式比對。
- */
-function detectionForm(line) {
-  return line
-    .normalize('NFKC')
-    .replace(/[*_`\s]/g, '')
-    .replace(/^(?:[-+>#]|\d+[.)])+/, '')
-    .toLowerCase();
+/** 重複套用 fn 直到結果不再改變（不動點）。 */
+function fixpoint(s, fn) {
+  for (let prev = null; prev !== s; ) [prev, s] = [s, fn(s)];
+  return s;
 }
 
-/** 去除前後空白、NFKC 後以 `|` 開頭（含全形 `｜`、引用中的表格）的行是表格列。 */
-function isTableLine(line) {
-  return /^(?:>\s*)*\|/.test(line.normalize('NFKC').trim());
+/** F2：刪除 `<!--`、`-->` 分隔符號（保留其間文字）與 HTML 標籤；`<版本>` 等 `<` 後非 ASCII 字母者不是標籤。 */
+const stripHtml = (s) => fixpoint(s, (t) => t.replace(/<!--|-->|<\/?[A-Za-z][^<>]*>/g, ''));
+/** F3：連結與圖片 `[文字](網址)`、`![文字](網址)` 換成文字。 */
+const stripLinks = (s) => fixpoint(s, (t) => t.replace(/!?\[([^[\]]*)\]\([^()]*\)/g, '$1'));
+
+/**
+ * 欄位偵測形式（review-process.md 第 4 節「欄位偵測形式 fieldForm」，DQ-13 (b)）：F1～F8 依序各套用一次，
+ * F2、F3 重複到不動點。只用來「找出看似某欄位的行」；合法與否一律以原文的逐字格式比對。
+ */
+export function fieldForm(line) {
+  let s = String(line).normalize('NFKC'); // F1
+  s = stripHtml(s); // F2
+  s = stripLinks(s); // F3
+  s = s.replace(/\\(?=[!-\/:-@[-`{-~])/g, ''); // F4：ASCII 標點之前的反斜線
+  s = s.replace(/[*_`~\s]/g, ''); // F5
+  s = s.replace(/\[[xX]?\]/g, ''); // F6：核取方塊（F5 已刪除其中的空白）
+  s = s.replace(/^[^\p{L}]+/u, ''); // F7：行首最長的非字母前綴
+  return s.toLowerCase(); // F8
+}
+
+const HTML_TABLE_TAG = /<\/?(?:table|thead|tbody|tr|td|th)(?![\p{L}\p{N}])/iu;
+
+/**
+ * 表格列偵測（review-process.md 第 4 節「表格列偵測 isTableLine」）：
+ * T1：NFKC 後含 HTML 表格標籤；T2：NFKC、F2 後去除前後空白，刪除行首最長的「非字母且不是 `|`」前綴後以 `|` 開頭。
+ */
+export function isTableLine(line) {
+  const s = String(line).normalize('NFKC');
+  if (HTML_TABLE_TAG.test(s)) return true; // T1
+  return stripHtml(s).trim().replace(/^[^\p{L}|]+/u, '').startsWith('|'); // T2
 }
 
 /** 以未跳脫的 `|` 切開表格列；回傳 null 表示不是 `|` 開頭且結尾的列。 */
@@ -102,7 +122,7 @@ export function isCandidateFor(body, headSha) {
   const sha = String(headSha).toLowerCase();
   if (!FULL_SHA.test(sha)) return false;
   return toLines(body).some((l) => {
-    const d = detectionForm(l);
+    const d = fieldForm(l);
     return d.startsWith('針對commit:') && d.includes(sha);
   });
 }
@@ -123,7 +143,7 @@ export function validateRecord(body) {
   // 欄位行：各恰好一行，且為逐字格式
   const values = {};
   for (const f of FIELDS) {
-    const hits = lines.filter((l) => detectionForm(l).startsWith(f.label));
+    const hits = lines.filter((l) => fieldForm(l).startsWith(f.label));
     const m = hits.length === 1 ? hits[0].trimEnd().match(f.strict) : null;
     if (!m) return bad(`欄位重複或格式不符：${f.name}`);
     values[f.name] = m.slice(1);
