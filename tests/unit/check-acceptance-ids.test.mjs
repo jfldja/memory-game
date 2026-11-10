@@ -680,7 +680,7 @@ describe('runCheck v0.5：第 9c 點（無瀏覽器層驗收測試的斷言來�
     }).violations, []);
   });
 
-  test('只有骨架的無瀏覽器層檔案同樣必須匯入（設計 12.2 第 9c 點未區分）', () => {
+  test('只有骨架的無瀏覽器層檔案同樣必須匯入（v0.5.1 釐清：12.2 第 9c 點不豁免只含骨架的檔案）', () => {
     const r = check({ 'tests/acceptance/unit/v.test.mjs': nodeTest + "test.skip('X', () => {});" });
     assert.deepEqual(rulesOf(r), ['12.2 第 9c 點']);
   });

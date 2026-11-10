@@ -460,3 +460,177 @@ describe('外層：對模擬的 GitHub API 執行', () => {
     );
   });
 });
+
+// ─────────── v0.5.1（簽核後釐清；review-process.md 第 4 節「偵測形式」、module-test-standards.md M12 v0.5.1） ───────────
+
+const FIELD_LINES = {
+  結果: { legal: '- 結果：APPROVED', value: 'APPROVED', reason: /欄位重複或格式不符：結果$/ },
+  '針對 commit': { legal: `- 針對 commit：${HEAD}`, value: HEAD, reason: /欄位重複或格式不符：針對 commit$/ },
+  審查者: { legal: '- 審查者：審查 agent，工作階段 review-1', value: '審查 agent，工作階段 review-1', reason: /欄位重複或格式不符：審查者$/ },
+};
+
+describe('evaluate：偵測形式去除行首區塊標記（v0.5.1）', () => {
+  test('正例：合法紀錄的三個欄位行各被偵測為恰好一行而通過（v0.5 字面規則下為 0 行而無效）', () => {
+    // validateRecord 要求每個欄位的偵測結果恰好一行；合法紀錄通過即證明三行各被偵測一次
+    const v = validateRecord(record());
+    assert.equal(v.ok, true, JSON.stringify(v));
+    // 對照：再加任何一行同一欄位的合法寫法就變成兩行
+    for (const [name, f] of Object.entries(FIELD_LINES)) {
+      assert.match(judge([comment(record({ extraFields: [f.legal] }))]).description, f.reason, name);
+    }
+  });
+
+  test('另有一行以引用、標題、有序清單、+ 清單開頭的同一欄位：欄位重複或格式不符', () => {
+    for (const [name, f] of Object.entries(FIELD_LINES)) {
+      const tail = f.legal.slice(2); // 「結果：APPROVED」等，不含清單符號
+      for (const line of [`> - ${tail}`, `> ${tail}`, `## ${tail}`, `1. ${tail}`, `1) ${tail}`, `+ ${tail}`, `>> 12. ${tail}`]) {
+        const r = judge([comment(record({ extraFields: [line] }))]);
+        assert.equal(r.state, 'failure', `${name}：${line}`);
+        assert.match(r.description, f.reason, `${name}：${line}`);
+      }
+    }
+  });
+
+  test('唯一的一行寫在引用區塊或縮排中：原文不符逐字格式而無效', () => {
+    for (const [name, f] of Object.entries(FIELD_LINES)) {
+      for (const line of [`> ${f.legal}`, `    ${f.legal}`, `\t${f.legal}`]) {
+        const r = judge([comment(record().replace(f.legal, line))]);
+        assert.equal(r.state, 'failure', `${name}：${JSON.stringify(line)}`);
+        assert.match(r.description, f.reason, `${name}：${JSON.stringify(line)}`);
+      }
+    }
+  });
+
+  test('「針對 commit」只寫在引用區塊且含 head SHA：仍是候選，判為無效且不退回較早的有效紀錄', () => {
+    const quoted = record().replace(`- 針對 commit：${HEAD}`, `> - 針對 commit：${HEAD}`);
+    assert.equal(isCandidateFor(quoted, HEAD), true);
+    const good = comment(record(), { at: '2026-11-09T10:00:00Z' });
+    const bad = comment(quoted, { at: '2026-11-09T11:00:00Z', url: 'quoted' });
+    const r = judge([good, bad]);
+    assert.equal(r.state, 'failure');
+    assert.match(r.description, /欄位重複或格式不符：針對 commit$/);
+    assert.equal(r.targetUrl, 'quoted');
+  });
+
+  test('引用區塊中的表格：整個表格在引用中、或唯一的表格列只有一列且在引用中，皆為表格格式不符', () => {
+    const quotedTable = record().split('\n').map((l) => (l.startsWith('|') ? `> ${l}` : l)).join('\n');
+    failsWith(quotedTable, /表格格式不符：第 \d+ 行/);
+    const onlyOne = record({ rows: [] })
+      .replace('| 編號 | 項目 | 結果 | 說明 |\n|---|---|---|---|\n', '')
+      .concat('\n> | R-5 | 項目 | 不通過 | |');
+    failsWith(onlyOne, /表格格式不符：第 \d+ 行/);
+  });
+});
+
+describe('evaluate：合法格式的對照組（v0.5.1；DQ-13 的對照）', () => {
+  test('review-process.md 第 2 節範本（補齊 R-3～R-15）判為 success', async () => {
+    const { readFileSync } = await import('node:fs');
+    const doc = readFileSync(path.resolve(path.dirname(SCRIPT), '../docs/design/review-process.md'), 'utf8');
+    const section = doc.slice(doc.indexOf('## 2. 審查紀錄格式'), doc.indexOf('## 3. 審查清單'));
+    const block = section.match(/```markdown\n([\s\S]*?)\n```/);
+    assert.ok(block, '找不到第 2 節的範本程式碼區塊');
+    const lines = block[1].split('\n');
+    const omit = lines.findIndex((l) => l.startsWith('（範例省略'));
+    assert.ok(omit > 0, '範本中找不到「範例省略」說明列');
+    const filled = CHECKLIST_IDS.slice(2).map((id) =>
+      id === 'R-5' ? '| R-5 | 狀態機變更與 spec.md 第 5 節一致 | 不適用 | 本 PR 沒有 core/game.js |' : `| ${id} | 項目 | 通過 | |`);
+    const body = [...lines.slice(0, omit), ...filled, ...lines.slice(omit + 1)].join('\n');
+    const sha = body.match(/^- 針對 commit：([0-9a-f]{40})$/m)?.[1];
+    assert.ok(sha, '範本中找不到 40 碼 SHA');
+    const prBody = ['## 作者', '- 角色：實作 agent', '- 工作階段：impl-2026-11-05-pr2', '- 角色：測試 agent', '- 工作階段：test-2026-11-05-pr2'].join('\n');
+    const r = evaluate({ headSha: sha, prBody, prUrl: 'pr', comments: [comment(body)] });
+    assert.equal(r.state, 'success', r.description);
+    assert.match(r.description, /審查者 review-2026-11-05-pr2-a/);
+  });
+
+  test('PR #2 上實際通過的紀錄（以 v0.5 格式補上 R-15 列；驗收編號改為虛構）判為 success', () => {
+    const r = judge([comment(PROBE_RECORD)], PROBE_PR_BODY);
+    assert.equal(r.state, 'success', r.description);
+    assert.match(r.description, /審查者 reviewer-probe-a-20261110/);
+  });
+
+  test('PR #2 的紀錄原文只有 R-1～R-14：依 v0.5 格式判為審查清單缺項 R-15', () => {
+    const withoutR15 = PROBE_RECORD.replace(/\n\| R-15 \|[^\n]*/, '');
+    const r = judge([comment(withoutR15)], PROBE_PR_BODY);
+    assert.equal(r.state, 'failure');
+    assert.match(r.description, /審查清單缺項：R-15$/);
+  });
+
+  test('「發現的問題」條列中的「R-5：不通過」維持有效（DQ-13 (b) 不涵蓋；判定只看逐項結果表）', () => {
+    for (const line of ['- R-5：不通過，暫停轉移缺少計時器處理', '- R-5 不通過', '1. R-5：不通過', '- **R-5**：不通過']) {
+      const r = judge([comment(record({ after: ['', '### 發現的問題', '', line] }))]);
+      assert.equal(r.state, 'success', `${line}：${r.description}`);
+    }
+    // 對照：同樣的「不通過」寫在逐項結果表中即失敗
+    failsWith(record({ rows: rowsWith({ 'R-5': '| R-5 | 項目 | 不通過 | 暫停轉移缺少計時器處理 |' }) }), /審查要求修改/);
+  });
+});
+
+describe('外層：--dry-run 印出 PR 狀態（v0.5.1）', () => {
+  for (const prState of ['open', 'closed']) {
+    test(`PR 為 ${prState}：輸出含（${prState}），只有讀取請求`, async () => {
+      const mock = mockApi({ prState, pages: [[comment(record())]] });
+      await withServer(mock, async (api) => {
+        const out = [];
+        const r = await runGate({ argv: ['--dry-run'], env: { GITHUB_REPOSITORY: 'o/r', PR_NUMBER: '7', GITHUB_API_URL: api }, log: (s) => out.push(s) });
+        assert.equal(r.written, false);
+        assert.match(out[0], new RegExp(`^review-gate --dry-run：PR #7（${prState}）head ${HEAD}$`));
+        assert.ok(mock.calls.every((c) => c.method === 'GET'));
+      });
+    });
+  }
+});
+
+// PR #2（探測 PR A）上實際留下並由 main 版 review-gate 判為 success 的紀錄（comment 6762784692），
+// 只做三處調整：SHA 換成本檔的 HEAD；文中的真實驗收編號改為虛構編號 AC-ZZ-*（模組單元測試不使用真實編號）；
+// 依 v0.5 第 2 節補上 R-15 一列（原文為 v0.4 格式，只有 R-1～R-14）。
+const PROBE_PR_BODY = ['## 作者', '- 角色：統籌 agent', '- 工作階段：orchestrator-20261110'].join('\n');
+const PROBE_RECORD = `<!-- review-record v1 -->
+## 審查紀錄
+
+- 結果：APPROVED
+- 針對 commit：${HEAD}
+- 審查者：審查 agent，工作階段 reviewer-probe-a-20261110
+- 作者：統籌 agent，工作階段 orchestrator-20261110（照抄 PR 說明「## 作者」段落）
+- 獨立性：審查者與作者為同一模型（Claude）的不同工作階段（docs/workflow.md W-1）。審查者以全新上下文啟動，未讀作者的推理過程，只讀 PR 差異與說明、需求、設計與審查清單
+- 審查依據：需求文件 v1.1；軟體規格書 v0.4；審查清單 v0.2（main 上的 review-process.md v0.4，判定以 main 上 commit 7707e9f 的 \`scripts/review-gate.mjs\` 為準）
+- 已載入 skill：agent-dev-workflow 1.1
+- 性質：**本 PR 為不合併的探測 PR**（spec.md 12.6 步驟 6b、8；DQ-11 (d)、DQ-12）。本則紀錄供步驟 8 (2)「留紀錄後 review-record 變為 success」的驗證，不代表同意合併
+
+### 檢查結果
+
+- \`GET compare/main...${HEAD}\`：ahead 3、behind 0、**檔案差異 0**。三個 commit：8ff1b34（空 commit，無檔案）、b50ea55（新增 \`tests/unit/probe-unit-failure.test.mjs\`）、060a570（刪除同一檔案）。淨變更為零。
+- PR 說明「變更內容」寫明「探測 PR A：不合併」，並寫明完成後關閉、刪除分支。
+- PR 說明寫明「6b 完成前，審查 agent 不在本 PR 留審查紀錄」。依本 PR 驗證紀錄 2，以及審查者讀取 \`branches/main/protection\` 的結果（必要檢查 7 項含 \`review-record\`，\`strict: true\`），6b 已完成，可以留紀錄。
+- head 060a570 的 check run：\`unit\`、\`acceptance-ids\`、\`pr-body\`、\`e2e (chromium)\`、\`e2e (firefox)\`、\`e2e (webkit)\`、\`review-gate\` 全部 success。\`review-record\` 留紀錄前為 failure，說明「沒有針對 060a570 的審查紀錄」，符合預期。
+- 本則草稿留下前，已用 main 上 \`scripts/review-gate.mjs\` 的 \`evaluate\` 搭配本 PR 說明在本機試算，結果為 success。
+
+### 逐項結果
+
+| 編號 | 項目 | 結果 | 說明 |
+|---|---|---|---|
+| R-1 | PR 說明含上工檢查與正確的 skill 版本號 | 通過 | 上工檢查全部勾選；agent-dev-workflow 1.1 等於 main 上 SKILL.md 變更紀錄最後一列；pr-body success |
+| R-2 | 對應編號完整，每個變更可對應到需求或設計編號 | 通過 | 對應 EQ-11、AC-ZZ-11、EQ-2、AC-ZZ-2、spec.md 12.6 步驟 6b、8、DQ-11 (d)、DQ-12；三個 commit 訊息皆標明編號 |
+| R-3 | 角色分工 | 通過 | 只有統籌 agent 暫時新增後刪除 \`tests/unit/\` 下的探測檔，屬 DQ-12 (b) 的驗證步驟；沒有修改 \`tests/acceptance/\`、\`tests/support/\`、\`src/\`，淨變更為零 |
+| R-4 | 沒有實作需求或規格書沒寫的行為 | 不適用 | 淨變更為零，沒有任何產品行為 |
+| R-5 | 狀態機變更與 spec.md 第 5 節一致 | 不適用 | 本 PR 沒有 \`core/game.js\` 的變更 |
+| R-6 | 驗收測試命名、時鐘控制、未放寬驗收 | 不適用 | 本 PR 沒有驗收測試的變更 |
+| R-7 | 單元測試涵蓋模組測試標準 | 不適用 | 暫時的探測測試已於 060a570 刪除，淨變更沒有單元測試 |
+| R-8 | \`core\` 層次相依 | 不適用 | 本 PR 沒有 \`src/js/core/\` 的變更 |
+| R-9 | \`src/\` 沒有外部網址、第三方程式庫、網路字型、cookie | 不適用 | 本 PR 沒有 \`src/\` 的變更 |
+| R-10 | DOM 測試介面變更已同步 | 不適用 | 本 PR 沒有 DOM 測試介面的變更 |
+| R-11 | 主分支不會壞：CI 全部通過，未實作功能的驗收為略過 | 通過 | head 060a570 的六項必要 check run 全部 success；本 PR 不會合併，主分支不受影響 |
+| R-12 | 文件與 skill | 不適用 | 本 PR 沒有文件或 skill 的變更；兩個產品負責人維護的 skill 副本未被修改 |
+| R-13 | 程式品質 | 不適用 | 淨變更為零，沒有程式碼 |
+| R-14 | CI 與檢查規則的變更沒有降低任何檢查 | 不適用 | 本 PR 沒有修改 \`.github/workflows/*\`、檢查腳本、\`playwright.config.mjs\`、\`package.json\`、\`supplementary-acceptance.json\` 或 \`docs/requirements.md\`；review-gate 以 main 上的版本執行 |
+| R-15 | 驗收測試確實驗證 | 不適用 | 本 PR 沒有驗收測試的變更 |
+
+### 發現的問題
+
+無。
+
+**給產品負責人：** 本 PR 為不合併的探測 PR，驗證完成後依 PR 說明關閉並刪除分支。本則紀錄只用於 spec.md 12.6 步驟 8 (2)。
+
+
+---
+_Generated by [Claude Code](https://claude.ai/code)_`;
