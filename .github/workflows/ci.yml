@@ -1,4 +1,4 @@
-# CI（spec.md 12.1、12.3；EQ-3、EQ-4、NFR-1）
+# CI（spec.md 12.1、12.2.1、12.3；EQ-3、EQ-4、NFR-1）
 # 必要檢查名稱：unit、acceptance-ids、e2e (chromium)、e2e (firefox)、e2e (webkit)
 # 安全：不在 run: 中以 ${{ }} 插值任何使用者可控的事件內容；只以 env: 傳入 SHA 與矩陣值。
 name: ci
@@ -28,7 +28,17 @@ jobs:
         with:
           node-version: 22
       # 以引號傳 glob：Node.js 22 傳入目錄會以「Cannot find module」失敗（spec.md 12.1）
-      - run: node --test 'tests/unit/**/*.test.mjs' 'tests/acceptance/unit/**/*.test.mjs'
+      # 模組單元測試與驗收測試分兩次執行，以取得只含驗收測試的結果檔；執行的測試集合不變
+      - name: unit tests
+        run: node --test 'tests/unit/**/*.test.mjs'
+      # 驗收測試（無瀏覽器層）：spec reporter 給人看，自訂 reporter 輸出結果檔（spec.md 12.2.1）。
+      # --test-reporter-destination 的目錄必須先存在
+      - name: acceptance tests (unit layer)
+        run: |
+          mkdir -p acceptance-results
+          node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/acceptance-reporter.mjs --test-reporter-destination=acceptance-results/unit.jsonl 'tests/acceptance/unit/**/*.test.mjs'
+      - name: acceptance results (unit layer)
+        run: node scripts/check-acceptance-results.mjs --layer unit acceptance-results/unit.jsonl
 
   acceptance-ids:
     name: acceptance-ids
@@ -51,6 +61,9 @@ jobs:
         browser: [chromium, firefox, webkit]
     env:
       BROWSER: ${{ matrix.browser }}
+      # 建置與測試讀同一個值（spec.md 第 11 節）。PR 用 head commit，不用 GITHUB_SHA
+      # （pull_request 事件的 GITHUB_SHA 是合併 commit）
+      BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -62,15 +75,17 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps "$BROWSER"
       - name: build
-        # PR 用 head commit，不用 GITHUB_SHA（pull_request 事件的 GITHUB_SHA 是合併 commit；spec.md 第 11 節）
-        env:
-          BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/build.mjs
+      # 兩次執行各自以自訂 reporter 輸出結果檔（playwright.config.mjs；spec.md 12.2.1）
       - name: e2e
         env:
           CI: 'true'
+          ACCEPTANCE_RESULTS_FILE: acceptance-results/e2e.jsonl
         run: npx playwright test --project="$BROWSER"
       - name: e2e realtime (NFR-6)
         env:
           CI: 'true'
+          ACCEPTANCE_RESULTS_FILE: acceptance-results/e2e-realtime.jsonl
         run: npx playwright test --project="$BROWSER-realtime" --workers=1
+      - name: acceptance results (e2e layer)
+        run: node scripts/check-acceptance-results.mjs --layer e2e acceptance-results/e2e.jsonl acceptance-results/e2e-realtime.jsonl

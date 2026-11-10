@@ -2,9 +2,10 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.4（依產品負責人對 DQ-1～DQ-10 的決定修訂） |
-| 日期 | 2026-11-09 |
-| 依據 | agent-dev-workflow 第 4.3 節（驗收測試骨架）；需求文件 v1.1 的 EQ-4、AC-EQ-4、第 10 節；spec.md v0.4 第 8、12、14、15 節 |
+| 版本 | 0.5.1（簽核後釐清：第 4 節第 9 點寫明只含骨架的檔案也須匯入 `assert`）；0.5（掃描範圍、略過寫法、執行結果與斷言檢查、AC-EQ-9 的 `BUILD_SHA`；第 3 節表頭修正；含設計審查第 3 輪修訂） |
+| 日期 | 2026-11-10 |
+| 狀態 | v0.5 已簽核（2026-11-10 16:06）；v0.5.1 已確認（2026-11-10 16:47） |
+| 依據 | agent-dev-workflow 第 4.3 節（驗收測試骨架）；需求文件 v1.1 的 EQ-4、AC-EQ-4、第 10 節；spec.md v0.5 第 8、11、12、14、15 節；PR #1 審查紀錄 N-2、N-6 |
 | 使用者 | 測試 agent（撰寫骨架與驗收測試）、審查 agent（R-6） |
 
 ---
@@ -12,6 +13,18 @@
 ## 1. 為什麼需要骨架
 
 需求 EQ-4 要求每個含「自動」的驗收編號都有測試，EQ-2 要求 CI 全部通過才能合併。兩條同時存在時，逐項開發會被尚未有測試的編號擋下。因此 **PR-1（啟用 `acceptance-ids` 檢查的 PR）必須同時包含下表全部骨架**：名稱含編號、標記為略過。之後每個功能 PR 把對應骨架改為實際測試。略過的骨架可通過編號檢查，但**不算通過驗收**；PR-7 打開 `--no-skip` 後，任何略過都會讓 CI 失敗。
+
+**驗收測試的位置與略過寫法（v0.5，spec.md 12.2、12.2.1）：**
+
+- 只有 `tests/acceptance/` 的測試採計為驗收覆蓋；`tests/unit/` 的測試名稱不得含必要編號（實作 agent 的單元測試不能冒充驗收）。
+- 驗收測試檔只能放在 `tests/acceptance/unit/**/*.test.mjs` 或 `tests/acceptance/e2e/**/*.spec.mjs`，否則不會被執行，檢查判定失敗。
+- **骨架的唯一寫法：** 檔案最上層的 `test.skip('<編號> <說明>', <本體為空的函式>)`（`() => {}` 或 `async () => {}`；第 3 輪審查 M-1）。不得使用 `test.fixme`、`test.fail`、`test.todo`、`describe.skip`、本體內的 `test.skip()`／`test.skip(條件)`／`t.skip()`／`testInfo.skip()`、`{ skip }`、`{ annotation: { type: 'skip' } }` 等任何其他寫法；這些寫法自 PR-1b 起一律讓檢查失敗。
+- **不得以條件略過處理引擎差異。** 某引擎無法通過時，依 agent-dev-workflow 5.2 記錄缺陷，不得 `test.skip(browserName === …)`（以略過 API 處理時，執行結果檢查會讓該引擎的 job 失敗，NFR-1）；也不得以提前 `return` 或分支跳過 Then（在第一個斷言之前 `return` 時，斷言計數檢查會讓該引擎的 job 失敗；在部分斷言之後 `return` 時機械檢查抓不到，由審查清單 R-15 攔下）。
+- **不得用預期失敗（`test.fail`）標記已知缺陷。** Playwright 把預期失敗算在 `expected`，不算略過，會讓失敗看起來像通過；執行結果檢查一律判定失敗。
+- 是否略過、是否預期失敗、是否實際執行，以 CI 的執行結果檢查（spec.md 12.2.1）為準；靜態檢查只是第一道。
+- **每個實際測試都要執行斷言（第 3 輪審查 M-1）：** 非骨架測試本體至少有一個 `expect…`／`assert…` 呼叫（靜態，spec.md 12.2 第 9a 點），且每次執行至少執行一個斷言、沒有失敗的斷言被吞掉（執行結果，12.2.1 第 6 項）。端對端層以 `@playwright/test` 的 `expect` 斷言（其他斷言方式不會被計數）；無瀏覽器層一律自 `tests/support/assertions.mjs` 匯入 `assert`，不直接匯入 `node:assert`（12.2 第 9c 點）。斷言輔助函式放在 `tests/support/`，名稱以 `expect` 或 `assert` 開頭，內部以上述方式斷言。
+- **同一檔案的測試名稱（含外層 `describe` 路徑）不得重複**（12.2 第 9b 點）。
+- **殘餘風險：** 機械檢查只能證明測試有執行斷言，不能證明斷言驗證了驗收標準（空洞斷言、只驗部分 Then、部分斷言後提前 `return`）。每個轉實測的測試做變異檢查（acceptance-testing skill 4.3），由審查清單 R-15 把關。
 
 **轉實測的前提：** 某驗收在某 PR 轉為實測時，其 Given／When 用到的畫面與操作必須已存在（spec.md 第 14 節最後一欄）。若測試 agent 發現前提不成立，不得自行加入進入遊戲的捷徑，依 agent-dev-workflow 5.1 回報。
 
@@ -76,8 +89,8 @@
 | 47 | AC-RC-6 | 自動 | E | records.spec.mjs | PR-5 | 同一 browser context 關閉頁面後開新頁 |
 | 48 | AC-RC-7 | 自動 | E | records.spec.mjs | PR-5 | |
 | 49 | AC-RC-8 | 自動 | E | records.spec.mjs | PR-5 | 監聽 `pageerror` 事件 |
-| 50 | AC-EQ-4 | 自動 | U | acceptance-ids.test.mjs | PR-1 | 對真實需求文件解析結果等於本表 55 個；反例：測試資料中刪除 AC-GP-5 的測試後檢查失敗；略過判定涵蓋 spec.md 12.2 第 5 點的全部寫法 |
-| 51 | AC-EQ-9 | 自動 | E | version.spec.mjs | PR-1 | 以 `BUILD_SHA` 建置，頁面版本號等於 `1.0.0+<BUILD_SHA 前 7 碼>`。需求的 Given 是「主分支最新 commit 的部署」，由 deploy.yml 中名為「AC-EQ-9（部署）與 EQ-12 證據」的 `smoke` 步驟對公開網址驗證；兩者合起來滿足 AC-EQ-9 |
+| 50 | AC-EQ-4 | 自動 | U | acceptance-ids.test.mjs | PR-1（PR-1b 補強） | 對真實需求文件解析結果等於本表 55 個；反例：測試資料中刪除 AC-GP-5 的測試後檢查失敗。PR-1b 補（spec.md 12.2 v0.5 第 11 點）：AC-GP-5 只出現在 `tests/unit/` 的測試名稱中時檢查失敗（且回報單元測試帶編號）；AC-GP-5 的測試在不會被執行的位置（例 `tests/acceptance/x.test.mjs`）時失敗；骨架宣告可通過編號檢查但 `--no-skip` 失敗；骨架本體不為空時失敗；把骨架的 `.skip` 刪掉留下空本體時失敗（12.2 第 9a 點）；12.2 第 8 點的每一種其他略過寫法（含本體內 `test.skip()`、`test.skip(條件, 說明)`、`test.fixme()`、`test.fail()`、`t.skip()`、`testInfo.skip()`、`{ annotation: { type: 'skip' } }`、`{ expectFailure }`）即使沒有 `--no-skip` 也失敗；`assert.fail` 不被誤判 |
+| 51 | AC-EQ-9 | 自動 | E | version.spec.mjs | PR-1（PR-1b 補強） | 以 `BUILD_SHA` 建置，頁面版本號等於 `1.0.0+<BUILD_SHA 前 7 碼>`。PR-1b：受測建置（`dist/`）的測試在 CI 中（`CI` 環境變數存在時）必須取得 `BUILD_SHA` 並比對等於其前 7 碼，缺少即失敗，不得退回只檢查格式（spec.md 第 11 節；PR-1 審查 N-6）。需求的 Given 是「主分支最新 commit 的部署」，由 deploy.yml 中名為「AC-EQ-9（部署）與 EQ-12 證據」的 `smoke` 步驟對公開網址驗證；兩者合起來滿足 AC-EQ-9 |
 | 52 | NFR-3 | 自動 | E | layout.spec.mjs | PR-4 | 五種尺寸；12 張牌的 bounding box 在視窗內；`documentElement.scrollWidth/scrollHeight` 等於 `clientWidth/clientHeight` |
 | 53 | NFR-5 | 自動 | E | layout.spec.mjs | 分範圍（下列） | 360×640；每張牌與每個可見按鈕的 bounding box ≥ 44×44 |
 | | 　NFR-5 遊戲畫面 | | | | PR-4 | 含暫停中 |
@@ -99,8 +112,6 @@ NFR-1 不需要獨立測試（EQ-4 例外），由 playwright.config 的三個 p
 
 見 spec.md 第 15 節與 `supplementary-acceptance.json`。產品負責人已決定（2026-11-09）Should 需求全部本輪實作、補充驗收全部啟用：6 個項目皆 `enforced: true`，與骨架**同在 PR-1** 加入。啟用後編號檢查共要求 55＋6＝61 個編號；PR-7 的 `--no-skip` 同樣適用於這 6 個。AC-EQ-10 為人工，不列入編號檢查，由測試 agent 在系統測試時執行並記錄。
 
-| 編號 | 層 | 骨架檔案 | 轉實測的 PR |
-|---|---|---|---|
 | 編號 | 層 | 骨架檔案 | 轉實測的 PR | 測試要點 |
 |---|---|---|---|---|
 | AC-PS-5 | E | pause.spec.mjs | PR-6 | 回到前景後推進 3 秒仍暫停、已用時間不變（DQ-2）；選單畫面的反例 |
@@ -123,7 +134,9 @@ NFR-1 不需要獨立測試（EQ-4 例外），由 playwright.config 的三個 p
    - 等待用真實的 `setTimeout`，期間不得暫停、不得配對完成（第 1 關 89 秒低於 90 秒上限）。
    - `test.setTimeout(120_000)`；放在 `timing-real.spec.mjs`，只由 `*-realtime` project 以單一 worker、在其他測試之後執行（spec.md 12.3），三個長度依序執行。
 6. **主控台錯誤：** AC-RC-8、AC-RC-9 監聽 `page.on('pageerror')`，有任何未處理錯誤即失敗。
-7. **測試命名：** `test('AC-GP-5 翻錯 1 秒後翻回：0.9 秒仍正面、1.1 秒已背面', …)`。編號放在名稱開頭，後接中文說明。多範圍編號為 `test('NFR-5 選單：…', …)`。
+7. **測試命名：** `test('AC-GP-5 翻錯 1 秒後翻回：0.9 秒仍正面、1.1 秒已背面', …)`。編號放在名稱開頭，後接中文說明。多範圍編號為 `test('NFR-5 選單：…', …)`。名稱盡量用字串字面值；需要以樣板字面值產生多個測試時（例如逐一尺寸），`${` 之前的固定文字須含編號，執行結果檢查以這段文字為前綴比對（spec.md 12.2.1 第 4 項）。
+8. **略過與預期失敗：** 依第 1 節「驗收測試的位置與略過寫法」。骨架轉實測時，把 `test.skip(` 改為 `test(` 並寫入本體（Given、When、Then 的每個觀察點都有斷言），不留下任何其他略過寫法。
+9. **PR-1b 的既有實測（第 3 輪審查 M-1）：** PR-1 已轉實測的測試（AC-EQ-4、AC-EQ-9、NFR-7 首頁）在 PR-1b 依 12.2 第 9a～9c 點與 12.2.1 第 6 項調整：無瀏覽器層改自 `tests/support/assertions.mjs` 匯入 `assert`。v0.5.1 簽核後釐清（spec.md 12.2 第 9c 點）：`tests/acceptance/unit/` 的**每個**測試檔都要匯入，包括只含骨架宣告的檔案（目前為 `config.test.mjs`、`card-attributes.test.mjs`、`deal.test.mjs`），不豁免；`tests/support/assertions.mjs` 須在同一個 PR 建立，否則這些檔案載入失敗。
 
 ## 5. 變更紀錄
 
@@ -133,3 +146,6 @@ NFR-1 不需要獨立測試（EQ-4 例外），由 playwright.config 的三個 p
 | 0.2 | 2026-11-04 | 轉實測的 PR 依 spec.md 第 14 節調整（AC-LV-1、AC-LV-7、AC-LV-9、AC-HT-1、AC-RS-1～3 移到 PR-4）並加入「轉實測的前提」；`data-face` 相關要點改為「依 DQ-7」；AC-PS-4 改用 `data-shown`／`data-role`；NFR-5、NFR-7 拆範圍；NFR-6 判定改為區間兩端皆在 ±0.2 秒內、區間寬度上限、逾時與獨立 project；AC-EQ-9 註明部署端的 smoke 步驟；補充驗收依 DQ-10 與同 PR 啟用規則 | design-review.md B-1、B-2、M-4、M-5、M-9、M-12、P-6 |
 | 0.3 | 2026-11-04 | NFR-6 刪除區間寬度上限（改為診斷輸出），建議以座標點擊與單一 evaluate 縮短區間 | design-review.md 回歸審查（第 2 輪）N-3 |
 | 0.4 | 2026-11-09 | 「依 DQ-7」改為配置輔助（記錄亂數＋錨點＋正式程式重放，翻開後以 `data-face` 驗證），AC-GP-1、AC-GP-2、AC-GP-4、AC-PS-4 的要點補不洩漏檢查；第 3 節改為 DQ-10 決定全部啟用（61 個編號）並補測試要點，AC-RS-4 含尚無紀錄的正例與反例（需求 v1.1）；依據改為需求 v1.1、spec.md v0.4 | 產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定；需求文件 v1.1 |
+| 0.5 | 2026-11-09 | 第 1 節新增「驗收測試的位置與略過寫法」（只採計 `tests/acceptance/`、單元測試不得帶編號、骨架唯一寫法、禁止條件略過與預期失敗、以執行結果為準）；#50 AC-EQ-4 補 PR-1b 的反例；#51 AC-EQ-9 在 CI 必須取得 `BUILD_SHA`；第 3 節刪除重複的表頭列；第 4 節補樣板名稱與略過規則；依據改為 spec.md v0.5 | PR-1 審查紀錄 N-2、N-6（含 PR-1 說明已知問題 1～4）；實作與測試 agent 回報 |
+| 0.5（第 3 輪審查修訂） | 2026-11-09 | 同一版本內依設計審查第 3 輪修訂：第 1 節骨架本體須為空、每個實際測試都要執行斷言（`expect`／`tests/support/assertions.mjs`）、測試名稱不得重複、條件略過的說明限定為「以略過 API 處理時」並補提前 `return` 的處理、殘餘風險；#50 補空本體的反例；第 4 節補第 9 點 | design-review.md 設計審查第 3 輪 M-1、P-2 |
+| 0.5.1（簽核後釐清） | 2026-11-10 | 第 4 節第 9 點寫明只含骨架的無瀏覽器層檔案也須匯入 `assert`，`tests/support/assertions.mjs` 在同一 PR 建立 | 實作 agent 依 agent-dev-workflow 5.1 詢問 12.2 第 9c 點是否豁免只有骨架的檔案；spec.md v0.5.1 |

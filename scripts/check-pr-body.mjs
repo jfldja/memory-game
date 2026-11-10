@@ -113,23 +113,53 @@ export function latestChangelogVersion(skillText) {
   return latest;
 }
 
+/** 工作階段識別正規化後允許的字元集（review-process.md 第 2 節、第 4 節第 2 步）。 */
+export const SESSION_ID_CHARSET = /^[a-z0-9-]+$/;
+/** 零寬與其他不可見格式字元（Unicode 類別 Cf）。 */
+const FORMAT_CHAR = /\p{Cf}/u;
+
 /**
- * 從 PR 說明「## 作者」段落取出全部工作階段識別（review-process.md 第 4 節第 2 步）。
- * 每一行符合 `工作階段：<識別>`（全形冒號；可有清單符號），去除前後空白與 HTML 註解。
+ * 正規化工作階段識別（spec.md 12.4 第 4 點；review-process.md 第 4 節第 2 步）：
+ * 原文不得含 Cf 字元；去除前後空白、NFKC、轉小寫後必須符合 `^[a-z0-9-]+$`。
+ * NFKC 不會移除零寬字元，也不會把相似字（例：西里爾字母 і）轉成拉丁字母，所以另以字元集限定。
+ * @param {string} raw
+ * @returns {string|null} 正規化後的識別；格式不符時為 null
+ */
+export function normalizeSessionId(raw) {
+  const s = String(raw ?? '');
+  // 先檢查 Cf：String.prototype.trim 會移除 U+FEFF，必須在去除空白之前檢查
+  if (FORMAT_CHAR.test(s)) return null;
+  const n = s.trim().normalize('NFKC').trim().toLowerCase();
+  return SESSION_ID_CHARSET.test(n) ? n : null;
+}
+
+/**
+ * 「## 作者」段落中每一行 `工作階段：<識別>` 的原文（未去除空白；已去除 HTML 註解）。
+ * 空白的識別（範本的佔位）不列入。
  * @param {string|null|undefined} body
  * @returns {string[]}
  */
-export function parseAuthorSessions(body) {
+export function parseAuthorSessionsRaw(body) {
   const lines = sectionLines(stripHtmlComments(body ?? ''), '## 作者');
   if (!lines) return [];
   const out = [];
   for (const line of lines) {
     const m = line.match(/^\s*(?:[-*]\s+)?工作階段：(.*)$/);
     if (!m) continue;
-    const id = m[1].trim();
-    if (id) out.push(id);
+    if (m[1].trim()) out.push(m[1]);
   }
   return out;
+}
+
+/**
+ * 從 PR 說明「## 作者」段落取出全部工作階段識別（review-process.md 第 4 節第 2 步）。
+ * 每一行符合 `工作階段：<識別>`（全形冒號；可有清單符號），去除前後空白與 HTML 註解。
+ * 回傳的是去除空白後的原文；比對前以 normalizeSessionId 正規化。
+ * @param {string|null|undefined} body
+ * @returns {string[]}
+ */
+export function parseAuthorSessions(body) {
+  return parseAuthorSessionsRaw(body).map((s) => s.trim());
 }
 
 /**
@@ -194,11 +224,19 @@ export function evaluatePrBody({ body, readSkill }) {
     }
   }
 
-  // 4. 作者：至少一個工作階段
+  // 4. 作者：至少一個工作階段；每個識別正規化後符合字元集、原文不含不可見格式字元
   if (!sectionLines(text, '## 作者')) {
     errors.push('缺少「## 作者」段落');
-  } else if (parseAuthorSessions(text).length === 0) {
-    errors.push('「## 作者」段落沒有「工作階段：<識別>」');
+  } else {
+    const sessions = parseAuthorSessionsRaw(text);
+    if (sessions.length === 0) errors.push('「## 作者」段落沒有「工作階段：<識別>」');
+    for (const raw of sessions) {
+      if (normalizeSessionId(raw) === null) {
+        errors.push(
+          `作者工作階段識別格式不符（去除空白、NFKC、轉小寫後須符合 ^[a-z0-9-]+$，且不得含不可見字元）：${JSON.stringify(raw.trim())}`,
+        );
+      }
+    }
   }
 
   return { ok: errors.length === 0, errors, warnings };
