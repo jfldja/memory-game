@@ -334,6 +334,19 @@ describe('validateAuthorSection（v0.6.1；review-process.md 4.1「作者段落�
     assert.equal(validateAuthorSection(section('<!-- a\nb -->', '- 工作階段: x')).reason, '作者段落格式不符：第 3 行 "- 工作階段: x"');
   });
 
+  test('v0.6.2：段落前、標題下一行的多行註解移除後才計算行號（標題下一行為第 1 行）', () => {
+    const before = ['<!-- 前面的\n多行\n註解 -->', '## 作者', '- 工作階段: x'].join('\n');
+    assert.equal(validateAuthorSection(before).reason, '作者段落格式不符：第 1 行 "- 工作階段: x"');
+    const after = ['## 作者', '<!-- 一\n二\n三 -->', '- 角色：實作 agent', '- 工作階段: x'].join('\n');
+    assert.equal(validateAuthorSection(after).reason, '作者段落格式不符：第 3 行 "- 工作階段: x"');
+  });
+
+  test('v0.6.2：作者段落含 X1 字元（U+200B、控制字元）時失敗', () => {
+    for (const ch of ['\u200B', '\u0001']) {
+      assert.deepEqual(validateAuthorSection(`## 作者\n- 工作階段：impl-1\n- 角色：a${ch}`), { ok: false, reason: '作者段落含不可見字元或字元參照' });
+    }
+  });
+
   test('CRLF 換行的段落有效（CR 不視為控制字元）；沒有作者段落時 ok 且沒有識別', () => {
     assert.deepEqual(validateAuthorSection(section('- 工作階段：impl-1').replace(/\n/g, '\r\n')), { ok: true, sessions: ['impl-1'] });
     assert.deepEqual(validateAuthorSection('## 上工檢查\n- [x] 一'), { ok: true, sessions: [] });

@@ -976,6 +976,12 @@ describe('v0.6.1：X1～X7、T3、T4 各自只觸發一條規則的案例', () =
     assert.equal(validateRecord(record()).ok, true);
   });
 
+  test('v0.6.2：X7 只刪一次完整標籤（不重複到不動點），`<<b>b>` 判無效', () => {
+    assert.equal(hasUnclosedTag('<<b>b>結果：X'), true);
+    assert.match(validateRecord(at.end(`<<b>b>結果：${CRQ}`)).reason, /^HTML 標籤未在同一行結束：第 \d+ 行$/);
+    assert.equal(hasUnclosedTag('<i><b>x</b></i>'), false);
+  });
+
   test('hasUnclosedTag：完整標籤刪除後仍有 < 緊接 ASCII 字母時成立', () => {
     for (const l of ['a<b', '- 結<span', '<b !>x', '</b', 'x </b !>']) assert.equal(hasUnclosedTag(l), true, l);
     for (const l of ['n < 3', '`<script>`', 'Array<string>', 'v<版本>', '<br/>', '<a href="x>y">t</a>', '< b', '<1>']) assert.equal(hasUnclosedTag(l), false, l);

@@ -749,6 +749,26 @@ describe('runCheck v0.6.1：第 9d 點（樣板字面值的測試名稱）', () 
     assert.deepEqual(only9d(check(unitFile(T('AC-ZZ-5 甲 ${x}') + S('AC-ZZ-5')))), []);
   });
 
+  test('v0.6.2：修飾變體（test.only、describe.skip 等）與樣板 describe 的空前綴也失敗', () => {
+    for (const src of [
+      "test.only(`${a}`, () => { assert.ok(1); });\n",
+      "describe.skip(`${a} 組`, () => {});\n",
+      "describe(` ${a}`, () => { test('X', () => { assert.ok(1); }); });\n",
+    ]) {
+      const v = only9d(check(unitFile(src)));
+      assert.equal(v.length, 1, src);
+      assert.match(v[0].message, /^樣板名稱的固定前綴為空/);
+    }
+    const e2e = only9d(check(e2eFile("test.describe(`${a}`, () => { test('X', async () => { expect(1).toBe(1); }); });\n")));
+    assert.equal(e2e.length, 1);
+    assert.match(e2e[0].message, /^樣板名稱的固定前綴為空/);
+  });
+
+  test('v0.6.2：修飾變體的樣板前綴也參與「前綴不唯一」的比對', () => {
+    const v = only9d(check(unitFile("test.skip(`組 ${a}`, () => {});\ntest('組 甲', () => { assert.ok(1); });\n")));
+    assert.ok(v.some((x) => /^樣板名稱前綴不唯一/.test(x.message)), JSON.stringify(v));
+  });
+
   test('樣板只出現在字串資料、斷言訊息、名稱以外的參數中時不採計', () => {
     const src = "test('X', () => { const s = `${a}`; assert.ok(1, `${b}`); });\nconst data = \"test(`${c}`, () => {})\";\n";
     assert.deepEqual(only9d(check(unitFile(src))), []);
