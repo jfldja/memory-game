@@ -1,5 +1,5 @@
 // 驗收測試（端對端層）：AC-EQ-9（EQ-9）。PR-1 轉為實際測試。
-// 依據：需求文件 v1.1 AC-EQ-9；acceptance-test-plan.md 第 2 節 #51；spec.md 第 11 節、4.11（版本號 [data-testid="version"]）。
+// 依據：需求文件 v1.1 AC-EQ-9；acceptance-test-plan.md v0.5.1 第 2 節 #51；spec.md 第 11 節、4.11（版本號 [data-testid="version"]）。
 //
 // 需求的 Given 是「主分支最新 commit 為 X 的部署」：公開網址的部分由 deploy.yml 的
 // 「AC-EQ-9（部署）與 EQ-12 證據」步驟驗證；本檔驗證「以 commit X 建置的頁面顯示可對應到 X 的版本號」。
@@ -58,13 +58,21 @@ test('AC-EQ-9 以 commit X 建置後開啟頁面：版本號為 1.0.0+<X 前 7 �
   }
 });
 
-test('AC-EQ-9 受測建置（dist/）的頁面顯示含 7 碼 commit 短碼的版本號；有指定 BUILD_SHA 時等於其前 7 碼', async ({ page }) => {
+// PR-1b（acceptance-test-plan.md #51、spec.md 第 11 節、PR-1 審查 N-6）：在 CI 中（環境變數 CI 存在時）
+// 必須取得 BUILD_SHA（e2e job 層級設定，建置與本測試讀同一個值），缺少即失敗，不得退回只檢查格式。
+// 本機（沒有 CI）未指定 BUILD_SHA 時只檢查格式；指定時同樣比對。
+test('AC-EQ-9 受測建置（dist/）的頁面顯示含 7 碼 commit 短碼的版本號；在 CI 中必須取得 BUILD_SHA 且等於其前 7 碼', async ({ page }) => {
+  const buildSha = (process.env.BUILD_SHA ?? '').trim().toLowerCase();
+  if (process.env.CI) {
+    expect(buildSha, 'CI 中必須以 BUILD_SHA 指定受測建置的 commit（e2e job 層級 env）').toMatch(/^[0-9a-f]{40}$/);
+  }
+
   await page.goto('/');
   const version = page.locator('[data-testid="version"]');
   await expect(version).toBeVisible();
   // 不接受開發用的「+dev」：受測建置必須能對應到 commit
   await expect(version).toHaveText(new RegExp(`^${APP_SEMVER.replace(/\./g, '\\.')}\\+[0-9a-f]{7}$`));
-  if (process.env.BUILD_SHA) {
-    await expect(version).toHaveText(`${APP_SEMVER}+${process.env.BUILD_SHA.trim().toLowerCase().slice(0, 7)}`);
+  if (buildSha) {
+    await expect(version).toHaveText(`${APP_SEMVER}+${buildSha.slice(0, 7)}`);
   }
 });
