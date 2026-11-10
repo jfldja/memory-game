@@ -67,14 +67,70 @@ describe('工作流程', () => {
 
   test('ci.yml：必要檢查名稱與三引擎矩陣；單元測試以引號傳 glob', () => {
     const t = read('ci.yml');
-    assert.match(t, /name: unit\n/);
-    assert.match(t, /name: acceptance-ids\n/);
+    assert.match(t, /^    name: unit\n/m);
+    assert.match(t, /^    name: acceptance-ids\n/m);
     assert.match(t, /name: e2e \(\$\{\{ matrix\.browser \}\}\)/);
     assert.match(t, /browser: \[chromium, firefox, webkit\]/);
-    assert.match(t, /node --test 'tests\/unit\/\*\*\/\*\.test\.mjs' 'tests\/acceptance\/unit\/\*\*\/\*\.test\.mjs'/);
     assert.match(t, /node scripts\/check-acceptance-ids\.mjs/);
-    assert.match(t, /BUILD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
     assert.match(t, /--project="\$BROWSER-realtime" --workers=1/);
+  });
+
+  /** 取出 ci.yml 中某個 job 的區塊（到下一個同層 job 為止）。 */
+  function jobBlock(text, job) {
+    const lines = text.split('\n');
+    const start = lines.findIndex((l) => l === `  ${job}:`);
+    assert.ok(start >= 0, `找不到 job ${job}`);
+    let end = lines.length;
+    for (let k = start + 1; k < lines.length; k++) if (/^  \S/.test(lines[k])) { end = k; break; }
+    return lines.slice(start, end).join('\n');
+  }
+  /** job 區塊中各步驟的 run 內容，依序（不含 uses 步驟）。 */
+  const runsOf = (block) => runBlocks(block).map((b) => b.trim());
+
+  test('ci.yml unit：模組單元測試與驗收測試分兩次執行，驗收測試以自訂 reporter 輸出並檢查結果（spec.md 12.1、12.2.1）', () => {
+    const runs = runsOf(jobBlock(read('ci.yml'), 'unit'));
+    assert.equal(runs.length, 3);
+    assert.equal(runs[0], "node --test 'tests/unit/**/*.test.mjs'");
+    assert.match(runs[1], /^mkdir -p acceptance-results\n/);
+    assert.match(runs[1], /--test-reporter=spec --test-reporter-destination=stdout/);
+    assert.match(runs[1], /--test-reporter=\.\/scripts\/acceptance-reporter\.mjs --test-reporter-destination=acceptance-results\/unit\.jsonl/);
+    assert.match(runs[1], / 'tests\/acceptance\/unit\/\*\*\/\*\.test\.mjs'$/);
+    assert.equal(runs[2], 'node scripts/check-acceptance-results.mjs --layer unit acceptance-results/unit.jsonl');
+    // 執行器沒有名稱過濾或略過參數
+    for (const r of runs) assert.doesNotMatch(r, /--test-name-pattern|--test-skip-pattern|--test-only|--no-skip/);
+  });
+
+  test('ci.yml e2e：BUILD_SHA 在 job 層級設定（建置與測試讀同一個值），步驟中不另外設定（spec.md 第 11 節）', () => {
+    const block = jobBlock(read('ci.yml'), 'e2e');
+    const jobEnv = block.match(/^    env:\n((?:      .*\n)+)/m);
+    assert.ok(jobEnv, '應有 job 層級的 env');
+    assert.match(jobEnv[1], /^      BUILD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}$/m);
+    assert.equal((block.match(/BUILD_SHA:/g) ?? []).length, 1, 'BUILD_SHA 只能在 job 層級設定一次');
+  });
+
+  test('ci.yml e2e：一般與 realtime 各輸出結果檔，最後以兩個結果檔檢查 e2e 層（spec.md 12.2.1）', () => {
+    const block = jobBlock(read('ci.yml'), 'e2e');
+    const runs = runsOf(block);
+    assert.deepEqual(runs.slice(-4), [
+      'node scripts/build.mjs',
+      'npx playwright test --project="$BROWSER"',
+      'npx playwright test --project="$BROWSER-realtime" --workers=1',
+      'node scripts/check-acceptance-results.mjs --layer e2e acceptance-results/e2e.jsonl acceptance-results/e2e-realtime.jsonl',
+    ]);
+    assert.match(block, /ACCEPTANCE_RESULTS_FILE: acceptance-results\/e2e\.jsonl\n\s+run: npx playwright test --project="\$BROWSER"\n/);
+    assert.match(block, /ACCEPTANCE_RESULTS_FILE: acceptance-results\/e2e-realtime\.jsonl\n\s+run: npx playwright test --project="\$BROWSER-realtime" --workers=1\n/);
+    for (const r of runs) assert.doesNotMatch(r, /--grep|--grep-invert|--last-failed|--only-changed|--pass-with-no-tests/);
+  });
+
+  test('playwright.config.mjs：自訂 reporter、一般 project 只執行 *.spec.mjs、CI 禁止 .only、不重試（spec.md 12.3）', () => {
+    const c = readFileSync(path.join(ROOT, 'playwright.config.mjs'), 'utf8');
+    assert.match(c, /reporter: \[\['list'\], \['\.\/scripts\/acceptance-reporter-pw\.mjs', \{ outputFile: RESULTS_FILE \}\]\]/);
+    assert.match(c, /const RESULTS_FILE = process\.env\.ACCEPTANCE_RESULTS_FILE \|\| 'acceptance-results\/playwright\.jsonl';/);
+    assert.match(c, /const SPEC_FILES = \/\\\.spec\\\.mjs\$\/;/);
+    assert.match(c, /\{ name, use: \{ \.\.\.device \}, testMatch: SPEC_FILES, testIgnore: REALTIME \}/);
+    assert.match(c, /testDir: 'tests\/acceptance\/e2e'/);
+    assert.match(c, /forbidOnly: Boolean\(process\.env\.CI\)/);
+    assert.match(c, /retries: 0/);
   });
 
   test('review-gate.yml：只簽出預設分支、不安裝套件、不使用快取、PR 編號以 env 傳入', () => {
