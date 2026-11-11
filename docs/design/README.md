@@ -2,9 +2,9 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.6.2（簽核後釐清：實作 agent 回報的 6 點）；0.6.1（DQ-14 採 (b) 寫入正文；PR #3 審查第 3、4(b) 點併入 PR-1c）；0.6（PR-1b 合併後：新增 DQ-14、PR-1c 與探測 PR B 的順序）；0.5.1（v0.5 簽核後釐清：實作 agent 依 agent-dev-workflow 5.1 回報的 4 項設計問題）；0.5（PR-1 審查 N-1～N-6 與實作、測試 agent 回報的修正；新增 PR-1b；含設計審查第 3 輪修訂） |
+| 版本 | 0.6.3（設計缺陷修正：相容偵測，依 PR #4 審查紀錄）；0.6.2（簽核後釐清：實作 agent 回報的 6 點）；0.6.1（DQ-14 採 (b) 寫入正文；PR #3 審查第 3、4(b) 點併入 PR-1c）；0.6（PR-1b 合併後：新增 DQ-14、PR-1c 與探測 PR B 的順序）；0.5.1（v0.5 簽核後釐清：實作 agent 依 agent-dev-workflow 5.1 回報的 4 項設計問題）；0.5（PR-1 審查 N-1～N-6 與實作、測試 agent 回報的修正；新增 PR-1b；含設計審查第 3 輪修訂） |
 | 日期 | 2026-11-10 |
-| 狀態 | v0.5 已簽核（2026-11-10 16:06（Asia/Taipei），產品負責人，見第 5 節）；v0.5.1 已確認（2026-11-10 16:47（Asia/Taipei））；v0.4 已簽核（2026-11-09 16:12）。DQ-1～DQ-13 已關閉（DQ-13 於 2026-11-10 16:47 採 (b)，規則寫入 review-process.md 第 4 節「偵測形式」）。v0.6 已簽核（2026-11-10 22:12（Asia/Taipei））；DQ-14 採 (b)，DQ-1～DQ-14 已全部關閉；v0.6.1 依該次決定展開、v0.6.2 為簽核後釐清，皆不需另行簽核（第 5 節） |
+| 狀態 | v0.5 已簽核（2026-11-10 16:06（Asia/Taipei），產品負責人，見第 5 節）；v0.5.1 已確認（2026-11-10 16:47（Asia/Taipei））；v0.4 已簽核（2026-11-09 16:12）。DQ-1～DQ-13 已關閉（DQ-13 於 2026-11-10 16:47 採 (b)，規則寫入 review-process.md 第 4 節「偵測形式」）。v0.6 已簽核（2026-11-10 22:12（Asia/Taipei））；DQ-14 採 (b)，DQ-1～DQ-14 已全部關閉；v0.6.1 依該次決定展開、v0.6.2 為簽核後釐清、v0.6.3 為設計缺陷修正，皆不需另行簽核（第 5 節） |
 | 依據 | docs/requirements.md v1.1（已簽核）；docs/workflow.md v0.2；docs/design/design-review.md（設計審查紀錄）；產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定；PR #1 審查紀錄（N-1～N-6）與實作、測試 agent 的回報；PR #3 審查紀錄（2026-11-10 09:17Z）；產品負責人 2026-11-10 21:37 同意統籌 agent 的建議；產品負責人 2026-11-10 22:12（Asia/Taipei） 的決定 |
 | 撰寫 | 設計 agent（agent-dev-workflow 第 3 節「設計 agent」） |
 
@@ -61,10 +61,10 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 | 檔案 | 版本 | 內容 |
 |---|---|---|
 | verification.md | 0.6.1 | Q4（開發工具授權）、Q6（GitHub Actions／Pages、分支保護、EQ-11 可行性、部署延遲）查證紀錄，附官方網址 |
-| spec.md | 0.6.2 | 軟體規格書：架構、檔案結構、模組介面、狀態機、計時、時鐘抽象、隨機排列、紀錄儲存、畫面與版面計算、版本號、CI／CD、PR 切分、Should 需求建議、待決問題、假設 |
-| module-test-standards.md | 0.6.2 | 各模組測試標準、單元測試與驗收測試分界、Must 需求追溯（以腳本核對） |
+| spec.md | 0.6.3 | 軟體規格書：架構、檔案結構、模組介面、狀態機、計時、時鐘抽象、隨機排列、紀錄儲存、畫面與版面計算、版本號、CI／CD、PR 切分、Should 需求建議、待決問題、假設 |
+| module-test-standards.md | 0.6.3 | 各模組測試標準、單元測試與驗收測試分界、Must 需求追溯（以腳本核對） |
 | acceptance-test-plan.md | 0.6.1 | 驗收測試骨架計畫（55 個必要編號＋6 個已啟用的補充驗收、層次、轉實測的 PR、撰寫注意事項） |
-| review-process.md | 0.6.2 | 審查紀錄格式、審查清單 R-1～R-15、審查檢查判定規則與工作流程安全設定 |
+| review-process.md | 0.6.3 | 審查紀錄格式、審查清單 R-1～R-15、審查檢查判定規則與工作流程安全設定 |
 | supplementary-acceptance.json | 0.4 | Should 需求的設計補充驗收編號（DQ-10 決定全部啟用，`enforced: true`，隨 PR-1 生效） |
 | cards.md | 0.4 | 牌面屬性表、繪製與轉換規則、第 3 關可分辨性的依據 |
 | card-attributes.json | schemaVersion 1（內容 v0.2：細節鍵名改為方向文字） | 機器可讀牌面屬性表（AC-LV-2～4 讀取） |
@@ -72,7 +72,7 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 | card-preview.png、card-preview-min-size.png、card-preview-360.png | v0.2 | 預覽頁截圖（本機 Chromium；最小尺寸模擬為 108×108） |
 | design-review.md | — | 設計審查紀錄（審查 agent 撰寫，設計 agent 不修改） |
 
-可重用設計 skill：`.claude/skills/software-design-phase/SKILL.md`（1.8）。
+可重用設計 skill：`.claude/skills/software-design-phase/SKILL.md`（1.9）。
 
 版本號說明：v0.4 起設計文件組的受影響文件統一為 0.4（verification.md、review-process.md、cards.md、supplementary-acceptance.json 由 0.2 直接升為 0.4）。v0.5 只升受影響的文件（本文件、spec.md、module-test-standards.md、acceptance-test-plan.md、review-process.md、verification.md）；cards.md、supplementary-acceptance.json 維持 0.4，card-attributes.json、card-preview.html 與截圖維持 v0.2。v0.5.1 只升本文件、spec.md、module-test-standards.md、acceptance-test-plan.md、review-process.md；verification.md 維持 0.5。v0.6 升本文件、spec.md、review-process.md、module-test-standards.md、verification.md；acceptance-test-plan.md 維持 0.5.1（必要編號與骨架不變）。v0.6.1 升 spec.md、review-process.md、module-test-standards.md、verification.md、acceptance-test-plan.md 與本文件。
 
@@ -357,6 +357,21 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 
 **回歸檢查：** 第 2 節範本（補 R-3～R-15，PR 範本填入作者識別）在 fa05bbb 與 `pr-1c-impl` 的 `evaluate` 下都是 success；實作的 `validateAuthorSection` 對 PR #1～#3 的實際說明與 PR 範本都回 `ok: true`（PR 範本為 0 個工作階段，由 `pr-body` 的「沒有工作階段」規則處理，不變）。**不需要實作 agent 修改程式**；module-test-standards.md M12 補的邊界若尚無測試，由實作 agent 補上。
 
+### 第 10 輪（v0.6.2 → v0.6.3，設計缺陷修正；對應 PR #4 審查紀錄 comment 6790734907）
+
+依 PR #4 審查紀錄（comment 6790734907，2026-11-11 08:13Z）修正設計缺陷，恢復 DQ-14 (b) 已決定的「只增加無效」性質；不改產品負責人的決定，不需另行簽核。設計 agent 判斷不需要產品負責人決定：修正不改變合法紀錄的格式（第 2 節範本與實際紀錄的判定不變），只讓 PR-1c 版不比 PR-1b 版寬鬆。
+
+| 來源 | 判定 | 處理 | 修改的檔案與章節 |
+|---|---|---|---|
+| 審查者：X7 看原文、F2′ 看 NFKC 後，全形或小型小於號、全形字母構成的不合文法標籤在 PR-1b 被刪除而偵測到、在 PR-1c 不刪也不觸發 X7；6 例 PR-1b failure、PR-1c success | **設計缺陷，接受**。v0.6.1「F2′ 與 X7 合起來只增加無效」的論證錯誤 | 不採審查者建議的「X7 也以 NFKC 判定」（差分測試仍有 1,024 例違反），改為相容偵測：欄位行與表格列的偵測取 PR-1b 版與 PR-1c 版的聯集，PR-1b 版的 `fieldForm`、`isTableLine` 逐字保留；四步論證與差分測試寫入 4.1 | review-process.md 4.1；spec.md 第 13、14 節；module-test-standards.md M12 |
+| 設計 agent 修正時發現：引號中的 `>`（純 ASCII，例：`- <x y=">結果：…">`）在 PR-1b 只刪到第一個 `>`、留下欄位文字；F2′ 整段刪除 | 同一缺陷的第二個缺口 | 相容偵測一併涵蓋（N10～N12） | 同上 |
+| 同類問題的系統檢查 | X1～X6、T3、T4、F9 只增加無效或只增加偵測；候選為超集；作者段落在 `ok` 時採計的集合與 PR-1b 相同；唯一的缺口是「新偵測取代舊偵測」的兩處（欄位行、表格列 T2），已以聯集處理 | 差分測試：24,510 例（全部 NFKC 會改變且結果為語法字元或 ASCII 英數的 1,107 個碼位 × 24 種攻擊寫法 × 3 個位置），現行 1,206 例違反，v0.6.3 原型 0 例；作者段落 660 例 0 例 | review-process.md 4.1「新舊兩版的關係」 |
+| skill | agent-dev-workflow 7.3：「只增加無效」以論證保證、未以構造與差分測試驗證，其他專案也會發生 | software-design-phase 升為 1.9 | .claude/skills/software-design-phase/SKILL.md 5.3、第 9、11 節 |
+
+**回歸檢查：** 第 2 節範本（補 R-3～R-15，PR 範本填入作者識別）在 fa05bbb 的 `evaluate` 與 v0.6.3 原型下都是 success；PR #1、PR #2（補 R-15）有效，PR #3 仍為「含字元參照」；「維持有效」的寫法不變。
+
+**給實作 agent 的工作（PR-1c，v0.6.3）：** (1) `scripts/detection.mjs` 加入自 fa05bbb 逐字複製的 `legacyFieldForm`、`legacyIsTableLine`（含其 F2ᴸ），註明不得修改；(2) `scripts/review-gate.mjs` 的欄位行偵測與表格列偵測改為與它們取聯集（`validateRecord` 兩處）；(3) 依 module-test-standards.md M12（v0.6.3）補 N1～N12、相容函式一致性與新舊兩版的差分單元測試（fa05bbb 的兩支腳本複製到 `tests/unit/fixtures/pr1b/`），並做「拿掉聯集時差分測試失敗」的變異檢查；(4) 合併前重做 spec.md 12.6 的新版 `--dry-run`。測試 agent 不需修改驗收測試。
+
 ## 5. 簽核紀錄（AC-EQ-6）
 
 | 日期 | 簽核者 | 簽核的版本 | 待決問題的決定 | 備註 |
@@ -367,6 +382,7 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 | 2026-11-10 22:12（Asia/Taipei） | 產品負責人 | 設計文件 v0.6（branch `pr-1c/review-gate-hardening`，commit 2d64629）；需求文件 v1.1 | DQ-14 採 (b)，附帶問題一併處理；PR #3 審查第 3、4(b) 點放進 PR-1c | 產品負責人於對話中回覆「DQ-14 選 b。第 3、4(b) 點放進 PR-1c。簽核設計 v0.6」，由設計 agent 代為記錄（統籌 agent 轉達）。PR-1c 的實作 commit 須在 v0.6.1 commit 之後 |
 | 2026-11-10 22:12（Asia/Taipei） | （不需另行簽核） | 設計文件 v0.6.1（branch `pr-1c/review-gate-hardening`，記錄本列的 commit） | — | v0.6.1：依產品負責人 2026-11-10 22:12 決定展開，不需另行簽核（DQ-14 (b) 寫入正文；第 3、4(b) 點的設計擴大 PR-1c 範圍，屬該次明確同意的內容） |
 | 2026-11-10 | （不需另行簽核） | 設計文件 v0.6.2（branch `pr-1c/review-gate-hardening`，記錄本列的 commit） | — | v0.6.2：簽核後釐清，依實作 agent 回報的 6 點使設計文字與實作一致或更正矛盾，不改產品負責人 2026-11-10 22:12 的決定、不放寬任何檢查，不需另行簽核 |
+| 2026-11-11 | （不需另行簽核） | 設計文件 v0.6.3（branch `pr-1c/review-gate-hardening`，記錄本列的 commit） | — | v0.6.3：依 PR #4 審查紀錄（comment 6790734907）修正設計缺陷，恢復 DQ-14 (b) 已決定的「只增加無效」性質，不改產品負責人的決定，不需另行簽核 |
 
 簽核日期必須早於第一個實作 PR 的建立日期。
 
@@ -387,3 +403,4 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 | 0.6 | 2026-11-10 | 第 0 節新增 v0.6 上工檢查；第 1 節更新版本；第 2 節新增 v0.6 的決定事項；第 3 節新增 DQ-14；新增第 7 輪修訂紀錄；第 5 節新增「v0.6 待簽核」一列（既有列不變）；設計 skill 升為 1.8 | PR #3 審查紀錄「發現的問題」第 1、2 點；產品負責人 2026-11-10 21:37 同意統籌 agent 的建議 |
 | 0.6.1 | 2026-11-10 | 記錄 v0.6 簽核與 DQ-14 採 (b)；第 0 節補 v0.6.1；第 1 節更新版本；第 2 節新增 v0.6.1 工作清單，v0.6 事項標為已完成；第 3 節 DQ-14 關閉；新增第 8 輪修訂紀錄與回歸檢查；第 5 節 v0.6 列改為已簽核、新增 v0.6.1 列 | 產品負責人 2026-11-10 22:12（Asia/Taipei） 的決定（統籌 agent 轉達），software-design-phase 3.4.1 第 1a 點 |
 | 0.6.2 | 2026-11-10 | 新增第 9 輪修訂紀錄（6 點的判定與回歸檢查）；第 1 節更新版本；第 5 節新增 v0.6.2 列 | 實作 agent 依 agent-dev-workflow 5.1 回報的 6 點（branch `pr-1c-impl`，head 2cc1fa4；統籌 agent 轉達） |
+| 0.6.3 | 2026-11-11 | 新增第 10 輪修訂紀錄（相容偵測、差分測試、給實作 agent 的工作）；第 1 節更新版本；第 5 節新增 v0.6.3 列；設計 skill 升為 1.9 | PR #4 審查紀錄（comment 6790734907） |
