@@ -13,6 +13,8 @@ import {
   fieldForm,
   isTableLine,
   hasMarker,
+  isSeparatorLike,
+  hasUnclosedTag,
   run as runGate,
   CHECKLIST_IDS,
   MARKER,
@@ -655,7 +657,8 @@ describe('DQ-13 (b)：判定表中的每一種無效寫法（加入合法紀錄�
     [`- [x] 結果：${CR}`, /欄位重複或格式不符：結果$/],
     [`- [X] 結果：${CR}`, /欄位重複或格式不符：結果$/],
     [`<b>結果</b>：${CR}`, /欄位重複或格式不符：結果$/],
-    [`<!-- - 結果：${CR} -->`, /欄位重複或格式不符：結果$/],
+    // v0.6.1 起 X6 先於欄位行判定（review-process.md 4.1「檢查順序」），原因改為「含 HTML 註解或宣告」
+    [`<!-- - 結果：${CR} -->`, /含 HTML 註解或宣告：第 \d+ 行$/],
     [`\\- 結果：${CR}`, /欄位重複或格式不符：結果$/],
     [`1、結果：${CR}`, /欄位重複或格式不符：結果$/],
     [`（1）結果：${CR}`, /欄位重複或格式不符：結果$/],
@@ -678,14 +681,18 @@ describe('DQ-13 (b)：判定表中的每一種無效寫法（加入合法紀錄�
     for (const [name, f] of Object.entries(FIELD_LINES)) {
       const tail = f.legal.slice(2);
       const label = tail.slice(0, tail.indexOf('：'));
-      for (const line of [`• ${tail}`, `- [ ] ${tail}`, `<!-- ${f.legal} -->`, `\\${f.legal}`, `(2) ${tail}`, `[${label}](https://example.test)${tail.slice(label.length)}`]) {
+      for (const line of [`• ${tail}`, `- [ ] ${tail}`, `\\${f.legal}`, `(2) ${tail}`, `[${label}](https://example.test)${tail.slice(label.length)}`]) {
         assert.match(judge([comment(record({ extraFields: [line] }))]).description, f.reason, `${name}：${line}`);
       }
+      // HTML 註解：v0.6.1 起由 X6 先判為無效
+      assert.match(judge([comment(record({ extraFields: [`<!-- ${f.legal} -->`] }))]).description, /含 HTML 註解或宣告：第 \d+ 行$/, name);
     }
   });
 
-  test('跨行 HTML 註解中的欄位行逐行偵測（只刪分隔符號、不刪內容）', () => {
-    failsWith(record({ extraFields: ['<!--', `- 結果：${CR}`, '-->'] }), /欄位重複或格式不符：結果$/);
+  test('跨行 HTML 註解中的欄位行：偵測形式逐行偵測（只刪分隔符號、不刪內容）；v0.6.1 起由 X6 先判為無效', () => {
+    assert.ok(fieldForm(`- 結果：${CR}`).startsWith('結果:'));
+    assert.equal(fieldForm('<!--'), '');
+    failsWith(record({ extraFields: ['<!--', `- 結果：${CR}`, '-->'] }), /含 HTML 註解或宣告：第 9 行$/);
   });
 
   test('唯一的一行寫成 (b) 才偵測到的形式：原文不符逐字格式而無效（候選判定也適用）', () => {
@@ -756,5 +763,295 @@ describe('DQ-13 (b)：isTableLine（T1、T2）', () => {
       assert.equal(lines.filter((l) => fieldForm(l).startsWith(label)).length, 1, label);
     }
     assert.deepEqual(lines.filter((l) => isTableLine(l)), lines.filter((l) => l.startsWith('|')));
+  });
+});
+
+// ─────────── v0.6.1：DQ-14 (b)（review-process.md 4.1：拒絕規則 X1～X7、F2′、F9、T3、T4、檢查順序、候選、作者段落） ───────────
+
+const CRQ = 'CHANGES_REQUESTED';
+const HF = 'ㅤ'; // HANGUL FILLER（Lo，Default_Ignorable_Code_Point）
+/** 4.1「實測方法」的基準：逐項表（R-1～R-15）之後接「### 發現的問題」與「1. 無。」。 */
+const BASE_AFTER = ['', '### 發現的問題', '', '1. 無。'];
+const DEFAULT_ROWS = CHECKLIST_IDS.map((id) => `| ${id} | 項目 | 通過 | |`);
+/** 位置：表後（緊接 R-15 列，沒有空行）、欄位中（欄位行之後）、文末（空一行後）。 */
+const at = {
+  table: (...lines) => record({ rows: [...DEFAULT_ROWS, ...lines], after: BASE_AFTER }),
+  fields: (...lines) => record({ extraFields: lines, after: BASE_AFTER }),
+  end: (...lines) => record({ after: [...BASE_AFTER, '', ...lines] }),
+};
+/** record() 中 R-15 列的下一行（1 起算）：標頭 13 行＋15 列。 */
+const AFTER_TABLE_LINE = 13 + CHECKLIST_IDS.length + 1;
+
+const T3_REASON = new RegExp(`表格格式不符：第 ${AFTER_TABLE_LINE} 行$`);
+const TABLE_REASON = /表格格式不符：第 \d+ 行$/;
+const INVISIBLE_REASON = /含不可見字元$/;
+const CHAR_REF_REASON = /含字元參照$/;
+const COMMENT_REASON = /含 HTML 註解或宣告：第 \d+ 行$/;
+const DUP_RESULT = /欄位重複或格式不符：結果$/;
+
+describe('v0.6.1：4.1 判定表的每一個案例（PR-1c 版的判定與回報原因）', () => {
+  // [編號, 紀錄, 預期原因]。表中 PR-1b 版判為有效的案例與 PR-1b 版已判為無效的案例都列入
+  const CASES = [
+    ['A1', at.table('R-5 | 項目 | 不通過 | x'), T3_REASON],
+    ['A2', at.table('R-5 | 項目 | 不通過 | x |'), T3_REASON],
+    ['A3', at.table('   R-5 | 項目 | 不通過 | x |'), T3_REASON],
+    ['A4', at.table('R-5 不通過'), T3_REASON],
+    ['A4b', at.table('補充：R-5 實為不通過'), T3_REASON],
+    ['C10', at.table(`${HF}| R-5 | 項目 | 不通過 | x |`), INVISIBLE_REASON],
+    ['A5', at.end('編號 | 結果', '--- | ---', 'R-5 | 不通過'), TABLE_REASON],
+    ['A7', at.end('> 編號 | 結果', '> --- | ---', '> R-5 | 不通過'), TABLE_REASON],
+    ['A8', at.end('- 編號 | 結果', '  --- | ---', '  R-5 | 不通過'), TABLE_REASON],
+    ['A9', at.end('R-5 不通過', ':-:'), TABLE_REASON],
+    ['A9b', at.end('R-5 不通過 |', '--- |'), TABLE_REASON],
+    ['A11', at.end('R-5 &#124; 項目 &#124; 不通過 &#124; x'), CHAR_REF_REASON],
+    ['B1', at.fields(`- &#x7D50;果：${CRQ}`), CHAR_REF_REASON],
+    ['B2', at.fields(`- &#32080;果：${CRQ}`), CHAR_REF_REASON],
+    ['B3', at.end(`-&nbsp;結果：${CRQ}`), CHAR_REF_REASON],
+    ['B4', at.end(`&#45; 結果：${CRQ}`), CHAR_REF_REASON],
+    ['B5', at.end(`- 結&ZeroWidthSpace;果：${CRQ}`), CHAR_REF_REASON],
+    ['B6', at.table('| R&#45;5 | 項目 | 不通過 | |'), CHAR_REF_REASON],
+    ['B7', at.end(`- 結果&#xFF1A;${CRQ}`), CHAR_REF_REASON],
+    ['B8', at.end(`- 結果&colon;${CRQ}`), CHAR_REF_REASON],
+    ['C1', at.end(`${HF}- 結果：${CRQ}`), INVISIBLE_REASON],
+    ['C2', at.end(`ﾠ- 結果：${CRQ}`), INVISIBLE_REASON],
+    ['C5', at.end(`- ᅟ結果：${CRQ}`), INVISIBLE_REASON],
+    ['C3', at.end(`- 結͏果：${CRQ}`), INVISIBLE_REASON],
+    ['C4', at.end(`- 結︀果：${CRQ}`), INVISIBLE_REASON],
+    ['C6', at.end(`- 結${HF}果：${CRQ}`), INVISIBLE_REASON],
+    ['C9', at.end(`- 結\u{E0100}果：${CRQ}`), INVISIBLE_REASON],
+    ['C7', at.end(`⠀- 結果：${CRQ}`), INVISIBLE_REASON],
+    ['C8', at.end(` - 結果：${CRQ}`), DUP_RESULT],
+    ['D1', at.end(`- 結<!--x-->果：${CRQ}`), COMMENT_REASON],
+    ['D2', at.end(`- 結<?x?>果：${CRQ}`), COMMENT_REASON],
+    ['D4', at.end(`- 結<![CDATA[x]]>果：${CRQ}`), COMMENT_REASON],
+    ['D3', at.end(`- 結<x y="a>b">果：${CRQ}`), DUP_RESULT],
+    ['H1', at.end('- 結<span', `class="x">果：${CRQ}`), /HTML 標籤未在同一行結束：第 \d+ 行$/],
+    ['E1', at.end(`- 结果：${CRQ}`), DUP_RESULT],
+    ['G1', record({ after: BASE_AFTER }).replace('- 結果：APPROVED', '<!--\n- 結果：APPROVED\n-->'), COMMENT_REASON],
+    ['G2', record({ after: BASE_AFTER }).replace('| 編號 | 項目 | 結果 | 說明 |', '<!--\n| 編號 | 項目 | 結果 | 說明 |').replace('| R-15 | 項目 | 通過 | |', '| R-15 | 項目 | 通過 | |\n-->'), COMMENT_REASON],
+    ['G3', record({ w1: '（略）', extraFields: ['<!-- 同一模型 不同工作階段 -->'], after: BASE_AFTER }), COMMENT_REASON],
+  ];
+
+  test('對照：基準紀錄本身有效', () => {
+    assert.equal(judge([comment(record({ after: BASE_AFTER }))]).state, 'success');
+  });
+
+  for (const [id, body, reason] of CASES) {
+    test(`${id}：判定無效，原因符合「PR-1c 版」欄`, () => {
+      const r = judge([comment(body)]);
+      assert.equal(r.state, 'failure', id);
+      assert.match(r.description, reason, `${id}：${r.description}`);
+    });
+  }
+
+  test('H1 的回報行號是標籤開始的那一行；D1 的行號是含註解的那一行', () => {
+    const h1 = at.end('- 結<span', `class="x">果：${CRQ}`);
+    const n = h1.split('\n').indexOf('- 結<span') + 1;
+    assert.equal(validateRecord(h1).reason, `HTML 標籤未在同一行結束：第 ${n} 行`);
+    const d1 = at.end(`- 結<!--x-->果：${CRQ}`);
+    assert.equal(validateRecord(d1).reason, `含 HTML 註解或宣告：第 ${d1.split('\n').length} 行`);
+  });
+
+  test('A9 的回報行號是 :-: 那一行（T4）；A1 的行號是表後的下一行（T3）', () => {
+    const a9 = at.end('R-5 不通過', ':-:');
+    assert.equal(validateRecord(a9).reason, `表格格式不符：第 ${a9.split('\n').length} 行`);
+    assert.equal(validateRecord(at.table('R-5 不通過')).reason, `表格格式不符：第 ${AFTER_TABLE_LINE} 行`);
+  });
+});
+
+describe('v0.6.1：誤判與維持有效（4.1 回歸表）', () => {
+  const readFixture = async (name) => {
+    const { readFileSync } = await import('node:fs');
+    return readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', name), 'utf8');
+  };
+  const PR1_HEAD = '6d279ceb06efa1c86d9816a6be5ff49f52921901';
+  const PR3_HEAD = 'e5212c73e57f59cac735408929ffacd140e6e12b';
+  const PR1_BODY = ['## 作者', '- 角色：實作 agent', '- 工作階段：implementer-pr1-20261109', '- 角色：測試 agent', '- 工作階段：tester-pr1-20261109', '- 角色：統籌 agent', '- 工作階段：orchestrator-20261109'].join('\n');
+  const PR3_BODY = ['## 作者', '- 工作階段：designer-pr1b-20261109', '- 工作階段：designer-pr1b-20261110', '- 工作階段：implementer-pr1b-20261110', '- 工作階段：tester-pr1b-20261110', '- 工作階段：orchestrator-20261110'].join('\n');
+  const withR15 = (body) => body.replace(/(\| R-14 \|[^\n]*\n)/, '$1| R-15 | 驗收測試確實驗證 | 不適用 | 本 PR 時尚無 R-15 |\n');
+
+  test('PR #1 的實際紀錄（補 R-15 列；驗收編號改為虛構）有效；原文只有 R-1～R-14 時缺 R-15', async () => {
+    const raw = await readFixture('pr1-review-record.md');
+    const ev = (body) => evaluate({ headSha: PR1_HEAD, prBody: PR1_BODY, prUrl: 'pr', comments: [comment(body)] });
+    assert.match(ev(raw).description, /審查清單缺項：R-15$/);
+    const r = ev(withR15(raw));
+    assert.equal(r.state, 'success', r.description);
+  });
+
+  test('PR #2 的實際紀錄（補 R-15 列）在 v0.6.1 仍有效', () => {
+    const r = judge([comment(PROBE_RECORD)], PROBE_PR_BODY);
+    assert.equal(r.state, 'success', r.description);
+  });
+
+  test('PR #3 的實際紀錄：無效「含字元參照」；把兩個字元參照改寫為文字描述後有效', async () => {
+    const raw = await readFixture('pr3-review-record.md');
+    const ev = (body) => evaluate({ headSha: PR3_HEAD, prBody: PR3_BODY, prUrl: 'pr', comments: [comment(body)] });
+    assert.equal(ev(raw).description, '含字元參照');
+    const rewritten = raw.replace('`&nbsp;`', '不換行空白的具名字元參照').replace('`&#x7D50;`', '「結」字的十六進位字元參照');
+    assert.doesNotMatch(rewritten, /&[#A-Za-z]/);
+    const r = ev(rewritten);
+    assert.equal(r.state, 'success', r.description);
+  });
+
+  test('第 2 節範本仍有效（另見「合法格式的對照組」）；emoji ✔️（含 U+FE0F）、散文 a<b 無效', () => {
+    assert.equal(judge([comment(at.end('- 已確認 ✔️'))]).description, '含不可見字元');
+    assert.match(judge([comment(at.end('- 若 a<b 則 …'))]).description, /HTML 標籤未在同一行結束：第 \d+ 行$/);
+    // 不帶變體選擇符的字元、加空白的寫法有效
+    assert.equal(judge([comment(at.end('- 已確認 ✔', '- 若 a < b 則 …'))]).state, 'success');
+  });
+
+  test('「發現的問題」以程式碼區塊貼出表格範例：無效（T2；只有單欄分隔列時 T4）', () => {
+    assert.match(judge([comment(at.end('```', '| R-5 | 項目 | 不通過 | |', '```'))]).description, TABLE_REASON);
+    assert.match(judge([comment(at.end('```', 'a', ':-:', '```'))]).description, TABLE_REASON);
+  });
+
+  test('n < 3、`<script>`、`Array<string>`、12:30-13:00、<版本> 有效', () => {
+    const r = judge([comment(at.end('- n < 3 時', '- 不得出現 `<script>`', '- 型別 `Array<string>`', '- 12:30-13:00', '- 需求文件 v<版本>'))]);
+    assert.equal(r.state, 'success', r.description);
+  });
+});
+
+describe('v0.6.1：X1～X7、T3、T4 各自只觸發一條規則的案例', () => {
+  const ONLY = [
+    ['X1', at.end('- 控制字元\u0001'), /^含不可見字元$/],
+    ['X2', at.end(`- 填充${HF}字`), /^含不可見字元$/],
+    ['X3', at.end('- 結合符號 é'), /^含不可見字元$/],
+    ['X4', at.end('- 點字空白⠀'), /^含不可見字元$/],
+    ['X5', at.end('- 具名參照 &amp; 之後'), /^含字元參照$/],
+    ['X6', at.end('- 說明 <! 這裡'), /^含 HTML 註解或宣告：第 \d+ 行$/],
+    ['X7', at.end('- 若 a<b'), /^HTML 標籤未在同一行結束：第 \d+ 行$/],
+    ['T3', at.table('補充'), new RegExp(`^表格格式不符：第 ${AFTER_TABLE_LINE} 行$`)],
+    ['T4', at.end('a', ':-:'), /^表格格式不符：第 \d+ 行$/],
+  ];
+  for (const [rule, body, reason] of ONLY) {
+    test(`${rule}`, () => {
+      const r = validateRecord(body);
+      assert.equal(r.ok, false, rule);
+      assert.match(r.reason, reason);
+    });
+  }
+
+  test('X1～X4 的字元各自不屬於其他規則（確認案例只觸發該規則）', () => {
+    assert.ok(!/\p{Default_Ignorable_Code_Point}|\p{M}/u.test('\u0001'));
+    assert.ok(!/\p{Cf}|\p{M}/u.test(HF) && /\p{Default_Ignorable_Code_Point}/u.test(HF));
+    assert.ok(!/\p{Cf}|\p{Default_Ignorable_Code_Point}/u.test('́') && /\p{M}/u.test('́'));
+    assert.ok(!/\p{Cf}|\p{Default_Ignorable_Code_Point}|\p{M}/u.test('⠀'));
+  });
+
+  test('檢查順序：同時違反 X5 與 T3 時回報「含字元參照」；同時違反 X1 與 X5 時回報「含不可見字元」', () => {
+    assert.equal(validateRecord(at.table('補充 &amp;')).reason, '含字元參照');
+    assert.equal(validateRecord(at.table('補充 &amp;​')).reason, '含不可見字元');
+  });
+
+  test('檢查順序：X6 先於 X7、X7 先於第 1 行標記與欄位行、T3 先於 T4、T4 先於 R 列缺項', () => {
+    assert.match(validateRecord(at.end('<!-- a<b')).reason, /^含 HTML 註解或宣告/);
+    assert.match(validateRecord(at.end('a<b').replace(MARKER, '<!-- review-record v2 -->')).reason, /^HTML 標籤未在同一行結束/);
+    assert.equal(validateRecord(record().replace(MARKER, '<!-- review-record v2 -->')).reason, '第一行不是紀錄標記');
+    assert.match(validateRecord(at.end(`- 若 a<b`, `- 結果：${CRQ}`)).reason, /^HTML 標籤未在同一行結束/);
+    const t3t4 = at.table('補充', ':-:');
+    assert.equal(validateRecord(t3t4).reason, `表格格式不符：第 ${AFTER_TABLE_LINE} 行`);
+    const noTable = record({ rows: [], after: ['', 'a', ':-:'] }).replace('| 編號 | 項目 | 結果 | 說明 |\n|---|---|---|---|\n', '');
+    assert.match(validateRecord(noTable).reason, /^表格格式不符：第 \d+ 行$/, '沒有表格時 T4 對每一行判定');
+  });
+
+  test('X6：第 1 行（標記）不受限；第 2 行起任何位置的 <! 或 <? 都無效', () => {
+    assert.equal(validateRecord(record()).ok, true);
+    assert.match(validateRecord(record().replace('## 審查紀錄', '## 審查紀錄 <?x')).reason, /^含 HTML 註解或宣告：第 2 行$/);
+  });
+
+  test('`- <b !>結果</b>：…` 由 X7 判為無效（F2′ 不刪不合文法的標籤）', () => {
+    assert.match(validateRecord(at.fields(`- <b !>結果</b>：${CRQ}`)).reason, /^HTML 標籤未在同一行結束：第 \d+ 行$/);
+    assert.match(validateRecord(record().replace('- 結果：APPROVED', '- <b !>結果</b>：APPROVED')).reason, /^HTML 標籤未在同一行結束/);
+  });
+
+  test('T3：表後的下一行只含空白或定位字元時有效；只含 U+00A0 的行不是空行；表格是最後一行時有效', () => {
+    assert.equal(validateRecord(record({ after: ['  \t', '### 發現的問題'] })).ok, true);
+    assert.equal(validateRecord(record({ after: [' ', '### 發現的問題'] })).reason, `表格格式不符：第 ${AFTER_TABLE_LINE} 行`);
+    assert.equal(validateRecord(record({ after: [] })).ok, true);
+  });
+
+  test('T4：分隔列寫法的超集（引用、清單中）；分隔線與時間範圍不算；逐項表分隔列本身不算', () => {
+    for (const l of [':-:', '> :--', '- |-', '1. --|--', '> - :-: |', '|-', '-:']) assert.ok(isSeparatorLike(l), l);
+    for (const l of ['- - -', '---', '***', '12:30-13:00', '--', '|||', ':::', 'a | -', '- 結果：x']) assert.ok(!isSeparatorLike(l), l);
+    assert.equal(validateRecord(record()).ok, true);
+  });
+
+  test('v0.6.2：X7 只刪一次完整標籤（不重複到不動點），`<<b>b>` 判無效', () => {
+    assert.equal(hasUnclosedTag('<<b>b>結果：X'), true);
+    assert.match(validateRecord(at.end(`<<b>b>結果：${CRQ}`)).reason, /^HTML 標籤未在同一行結束：第 \d+ 行$/);
+    assert.equal(hasUnclosedTag('<i><b>x</b></i>'), false);
+  });
+
+  test('hasUnclosedTag：完整標籤刪除後仍有 < 緊接 ASCII 字母時成立', () => {
+    for (const l of ['a<b', '- 結<span', '<b !>x', '</b', 'x </b !>']) assert.equal(hasUnclosedTag(l), true, l);
+    for (const l of ['n < 3', '`<script>`', 'Array<string>', 'v<版本>', '<br/>', '<a href="x>y">t</a>', '< b', '<1>']) assert.equal(hasUnclosedTag(l), false, l);
+  });
+});
+
+describe('v0.6.1：isCandidateFor 改為原文任何位置含 head 的完整 SHA', () => {
+  test('只在說明文字中含 head SHA（沒有「針對 commit」行）的較晚一則：仍是候選，使判定無效', () => {
+    const later = [MARKER, '## 審查紀錄', '', `補充：本則針對 ${HEAD}。`].join('\n');
+    assert.equal(isCandidateFor(later, HEAD), true);
+    const r = judge([comment(record()), comment(later, { at: '2026-11-09T11:00:00Z' })]);
+    assert.equal(r.state, 'failure');
+    assert.match(r.description, /^欄位重複或格式不符：/);
+  });
+
+  test('`- <b !>針對 commit</b>：<SHA>` 的較晚紀錄使較早的有效紀錄不生效', () => {
+    const later = record().replace(`- 針對 commit：${HEAD}`, `- <b !>針對 commit</b>：${HEAD}`);
+    assert.equal(isCandidateFor(later, HEAD), true);
+    const r = judge([comment(record()), comment(later, { at: '2026-11-09T11:00:00Z', url: 'later' })]);
+    assert.equal(r.state, 'failure');
+    assert.equal(r.targetUrl, 'later');
+  });
+
+  test('大寫 SHA 也算候選；沒有標記或非協作者的評論仍不是候選', () => {
+    const upper = `${MARKER}\n說明 ${HEAD.toUpperCase()}`;
+    assert.equal(isCandidateFor(upper, HEAD), true);
+    assert.equal(judge([comment(record()), comment(upper, { at: '2026-11-09T11:00:00Z' })]).state, 'failure');
+    assert.equal(judge([comment(record()), comment(`說明 ${HEAD}`, { at: '2026-11-09T11:00:00Z' })]).state, 'success');
+    assert.equal(judge([comment(record()), comment(upper, { assoc: 'NONE', at: '2026-11-09T11:00:00Z' })]).state, 'success');
+  });
+
+  test('短碼、舊 SHA、head 不是 40 碼時不是候選', () => {
+    assert.equal(isCandidateFor(`${MARKER}\n${HEAD.slice(0, 39)}`, HEAD), false);
+    assert.equal(isCandidateFor(record({ sha: OLD }), HEAD), false);
+    assert.equal(isCandidateFor(record(), HEAD.slice(0, 7)), false);
+  });
+});
+
+describe('v0.6.1：review-gate 的作者段落（與 pr-body 共用 validateAuthorSection）', () => {
+  const body = (...lines) => ['## 作者', ...lines, '## 上工檢查'].join('\n');
+  test('看似「工作階段」卻不符逐字格式的行、含字元參照或 U+3164：作者工作階段識別格式不符', () => {
+    for (const prBody of [
+      body('- 工作階段：impl-1', '- 工作階段: review-1'),
+      body('- 工作階段：impl-1', '**工作階段**：review-1'),
+      body('- 工作階段：impl-1', '> 工作階段：review-1'),
+      body('- 工作階段：impl-1', '- 工作阶段：review-1'),
+      body('- 工作階段：impl-1', '- 備註 &#32;'),
+      body(`- 工作階段：impl-1${HF}`),
+    ]) {
+      const r = judge([comment(record())], prBody);
+      assert.equal(r.state, 'failure', prBody);
+      assert.equal(r.description, '作者工作階段識別格式不符', prBody);
+    }
+  });
+
+  test('合法的作者段落（含範本中只有註解的空值、角色行）照舊判定', () => {
+    assert.equal(judge([comment(record())], body('- 角色：實作 agent', '- 工作階段：impl-1', '- 工作階段：<!-- 例 -->')).state, 'success');
+    assert.equal(judge([comment(record())], body('- 角色：實作 agent', '- 工作階段：review-1')).description, '審查者與作者相同或未標明');
+  });
+});
+
+describe('v0.6.1：review-gate 的相依只有內建模組與本目錄的兩個檔案（review-process.md 第 4 節「工作流程設定」）', () => {
+  test('review-gate.mjs、check-pr-body.mjs、detection.mjs 的匯入來源', async () => {
+    const { readFileSync } = await import('node:fs');
+    const allowed = new Set(['./check-pr-body.mjs', './detection.mjs']);
+    for (const f of ['review-gate.mjs', 'check-pr-body.mjs', 'detection.mjs']) {
+      const src = readFileSync(path.join(path.dirname(SCRIPT), f), 'utf8');
+      const specs = [...src.matchAll(/^\s*(?:import|export)\s[^;]*?from\s+'([^']+)'/gm)].map((m) => m[1]);
+      for (const spec of specs) assert.ok(spec.startsWith('node:') || allowed.has(spec), `${f}：${spec}`);
+      assert.doesNotMatch(src, /\brequire\(|\bimport\(/, f);
+    }
   });
 });

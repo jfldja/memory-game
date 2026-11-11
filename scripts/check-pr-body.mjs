@@ -5,10 +5,12 @@
 //   以目前簽出的版本庫（PR 的 head commit）中的 .claude/skills/<名稱>/SKILL.md 判定版本號。
 // 用法（本機）：node scripts/check-pr-body.mjs --body-file <檔案>
 //
-// 判定邏輯為純函式 evaluatePrBody，供模組單元測試呼叫；review-gate 共用 parseAuthorSessions。
+// 判定邏輯為純函式 evaluatePrBody，供模組單元測試呼叫；review-gate 共用 validateAuthorSection
+// （review-process.md 4.1「作者段落」）。偵測形式與字元判定自 scripts/detection.mjs 匯入（同一份實作）。
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fieldForm, firstCharRule } from './detection.mjs';
 
 export const NO_VERSION = '無版本號';
 const SKILL_NAME = /^[a-z0-9][a-z0-9-]*$/;
@@ -133,22 +135,49 @@ export function normalizeSessionId(raw) {
   return SESSION_ID_CHARSET.test(n) ? n : null;
 }
 
+/** 作者段落中工作階段行的逐字格式（spec.md 12.4 第 4 點）。 */
+export const AUTHOR_SESSION_LINE = /^\s*(?:[-*]\s+)?工作階段：(.*)$/;
+/** 作者段落中「看似工作階段」的行：偵測形式（F1～F9）以此開頭。 */
+const AUTHOR_SESSION_LABEL = '工作階段:';
+
+/**
+ * 驗證 PR 說明的「## 作者」段落並取出工作階段識別（review-process.md 4.1「作者段落」；spec.md 12.4 第 4 點 v0.6.1）。
+ * 先移除 HTML 註解，再取段落內的行（標題下一行為第 1 行）：
+ * 1. 段落文字含 X1～X5 的任一字元或字元參照 → `作者段落含不可見字元或字元參照`。
+ * 2. 偵測形式（fieldForm，F1～F9）以「工作階段:」開頭的每一行，原文必須符合 AUTHOR_SESSION_LINE，
+ *    否則 `作者段落格式不符：第 n 行 <原文的 JSON>`（回報第一個不符的行）。
+ * 3. 符合的行中，值去除空白後非空者依原文採計（範本中只有註解的空值不採計、不失敗）。
+ * 沒有「## 作者」段落時回傳 ok 與空陣列（段落是否存在由 evaluatePrBody 另外判定）。
+ * review-gate 第 2 步與 evaluatePrBody 都使用本函式。
+ * @param {string|null|undefined} body PR 說明
+ * @returns {{ ok: true, sessions: string[] } | { ok: false, reason: string }}
+ */
+export function validateAuthorSection(body) {
+  const lines = sectionLines(stripHtmlComments(String(body ?? '')), '## 作者');
+  if (!lines) return { ok: true, sessions: [] };
+  if (firstCharRule(lines.join('\n')) !== null) return { ok: false, reason: '作者段落含不可見字元或字元參照' };
+  const sessions = [];
+  for (let k = 0; k < lines.length; k++) {
+    const line = lines[k];
+    if (!fieldForm(line).startsWith(AUTHOR_SESSION_LABEL)) continue;
+    const m = line.match(AUTHOR_SESSION_LINE);
+    if (!m) return { ok: false, reason: `作者段落格式不符：第 ${k + 1} 行 ${JSON.stringify(line)}` };
+    if (m[1].trim()) sessions.push(m[1]);
+  }
+  return { ok: true, sessions };
+}
+
 /**
  * 「## 作者」段落中每一行 `工作階段：<識別>` 的原文（未去除空白；已去除 HTML 註解）。
- * 空白的識別（範本的佔位）不列入。
+ * 空白的識別（範本的佔位）不列入。v0.6.1 起呼叫 validateAuthorSection：段落不符 4.1「作者段落」時丟出錯誤
+ * （不回傳部分結果，避免呼叫端把格式不符的段落當成作者較少）。
  * @param {string|null|undefined} body
  * @returns {string[]}
  */
 export function parseAuthorSessionsRaw(body) {
-  const lines = sectionLines(stripHtmlComments(body ?? ''), '## 作者');
-  if (!lines) return [];
-  const out = [];
-  for (const line of lines) {
-    const m = line.match(/^\s*(?:[-*]\s+)?工作階段：(.*)$/);
-    if (!m) continue;
-    if (m[1].trim()) out.push(m[1]);
-  }
-  return out;
+  const r = validateAuthorSection(body);
+  if (!r.ok) throw new Error(r.reason);
+  return r.sessions;
 }
 
 /**
@@ -224,11 +253,14 @@ export function evaluatePrBody({ body, readSkill }) {
     }
   }
 
-  // 4. 作者：至少一個工作階段；每個識別正規化後符合字元集、原文不含不可見格式字元
+  // 4. 作者：段落符合 4.1「作者段落」；至少一個工作階段；每個識別正規化後符合字元集、原文不含不可見格式字元
+  const authors = validateAuthorSection(text);
   if (!sectionLines(text, '## 作者')) {
     errors.push('缺少「## 作者」段落');
+  } else if (!authors.ok) {
+    errors.push(authors.reason);
   } else {
-    const sessions = parseAuthorSessionsRaw(text);
+    const sessions = authors.sessions;
     if (sessions.length === 0) errors.push('「## 作者」段落沒有「工作階段：<識別>」');
     for (const raw of sessions) {
       if (normalizeSessionId(raw) === null) {

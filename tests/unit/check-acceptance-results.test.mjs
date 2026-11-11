@@ -166,6 +166,24 @@ describe('evaluateResults：第 4 項（沒有執行）', () => {
     assert.deepEqual(items(bad), [4, 4]);
   });
 
+  test('v0.6.1：樣板的固定前綴去除空白後為空時，即使同檔有其他結果也判定「沒有執行」', () => {
+    for (const name of ['${a} AC-ZZ-5', '  ${a}', '\t${a}${b}']) {
+      const statics = [st(UF, name, { literal: 'template' }), st(UF, 'AC-ZZ-6 其他')];
+      const r = judge({ staticTests: statics, results: [node('AC-ZZ-5 x'), node('AC-ZZ-6 其他'), node('  x')] });
+      assert.deepEqual(r.failures.map((f) => [f.item, f.name]), [[4, name]], JSON.stringify(name));
+      assert.match(r.failures[0].message, /沒有執行結果/);
+    }
+  });
+
+  test('v0.6.1：前綴為空的樣板 describe 也不以前綴比對外層路徑或套件結果', () => {
+    const statics = [st(EF, '${g}', { kind: 'describe', literal: 'template' }), st(EF, 'in', { path: ['${g}'] })];
+    const r = judge({ layer: 'e2e', staticTests: statics, results: [pw('in', { path: ['組 1'] })] });
+    assert.deepEqual(r.failures.map((f) => [f.item, f.name]), [[4, '${g}']]);
+    // 對照：前綴非空的樣板 describe 以前綴比對外層路徑
+    const okStatics = [st(EF, '組 ${g}', { kind: 'describe', literal: 'template' }), st(EF, 'in', { path: ['組 ${g}'] })];
+    assert.equal(judge({ layer: 'e2e', staticTests: okStatics, results: [pw('in', { path: ['組 1'] })] }).ok, true);
+  });
+
   test('describe 名稱以外層路徑比對', () => {
     const statics = [st(EF, '區', { kind: 'describe' }), st(EF, 'in', { path: ['區'] }), st(EF, '空區', { kind: 'describe' })];
     const r = judge({ layer: 'e2e', staticTests: statics, results: [pw('in', { path: ['區'] })] });
