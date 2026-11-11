@@ -16,7 +16,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateAuthorSection, normalizeSessionId } from './check-pr-body.mjs';
-import { fieldForm, stripHtml, firstCharRule, charRuleReason, HTML_TAG } from './detection.mjs';
+import { fieldForm, stripHtml, firstCharRule, charRuleReason, HTML_TAG, legacyFieldForm, legacyIsTableLine } from './detection.mjs';
 
 export { fieldForm };
 
@@ -41,6 +41,13 @@ const FIELDS = Object.freeze([
 function toLines(body) {
   return String(body ?? '').replace(/\r\n/g, '\n').split('\n');
 }
+
+/**
+ * 欄位行與表格列的判定用偵測（review-process.md 4.1「相容偵測」v0.6.3）：新偵測與 PR-1b 版偵測的聯集。
+ * 以構造保證「PR-1c 有效 ⇒ PR-1b 有效」；不得改為只用新偵測。
+ */
+const looksLikeField = (line, label) => fieldForm(line).startsWith(label) || legacyFieldForm(line).startsWith(label);
+const looksLikeTableLine = (line) => isTableLine(line) || legacyIsTableLine(line);
 
 const HTML_TABLE_TAG = /<\/?(?:table|thead|tbody|tr|td|th)(?![\p{L}\p{N}])/iu;
 
@@ -118,8 +125,8 @@ export function hasUnclosedTag(line) {
 
 /**
  * 依白名單驗證一則紀錄（review-process.md 第 2 節「規則」、第 4 節第 5 步第 1 項、4.1）。
- * 檢查順序（4.1「檢查順序」）：X1 → X2 → X3 → X4 → X5 → X6（逐行）→ X7（逐行）→ 第 1 行標記 → 欄位行（F1～F9）
- * → 表格列（T1、T2 的連續性與逐字格式）→ T3 → T4 → R 列的重複、缺項、清單外、結果值、「不適用」理由 → 審查者識別格式。
+ * 檢查順序（4.1「檢查順序」）：X1 → X2 → X3 → X4 → X5 → X6（逐行）→ X7（逐行）→ 第 1 行標記 → 欄位行（F1～F9 與相容偵測的聯集）
+ * → 表格列（T1、T2 與相容偵測的聯集；連續性與逐字格式）→ T3 → T4 → R 列的重複、缺項、清單外、結果值、「不適用」理由 → 審查者識別格式。
  * 回報第一個不符之處；全部符合時回傳解析結果。
  * @param {string} body
  * @returns {{ ok: false, reason: string } | { ok: true, result: string, sha: string, reviewerSession: string, items: Array<{ id: string, result: string, note: string }> }}
@@ -141,7 +148,7 @@ export function validateRecord(body) {
   // 欄位行：各恰好一行，且為逐字格式
   const values = {};
   for (const f of FIELDS) {
-    const hits = lines.filter((l) => fieldForm(l).startsWith(f.label));
+    const hits = lines.filter((l) => looksLikeField(l, f.label));
     const m = hits.length === 1 ? hits[0].trimEnd().match(f.strict) : null;
     if (!m) return bad(`欄位重複或格式不符：${f.name}`);
     values[f.name] = m.slice(1);
@@ -153,7 +160,7 @@ export function validateRecord(body) {
   const rawSession = values['審查者'][1];
 
   // 表格：只能有一個，表頭、分隔列、R 列連續
-  const tableIdx = lines.map((l, k) => (isTableLine(l) ? k : -1)).filter((k) => k >= 0);
+  const tableIdx = lines.map((l, k) => (looksLikeTableLine(l) ? k : -1)).filter((k) => k >= 0);
   const rows = [];
   if (tableIdx.length > 0) {
     const start = tableIdx[0];
