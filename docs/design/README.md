@@ -2,13 +2,15 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.7（新增 DQ-15：CI 外部相依的逾時與穩定性，含已實測的選項 (g)；缺陷 D-macOS 的修正規格；新增 PR-1d（ci.yml 依 DQ-15 決定）；v0.7 待簽核）；0.6.3（設計缺陷修正：相容偵測，依 PR #4 審查紀錄）；0.6.2（簽核後釐清：實作 agent 回報的 6 點）；0.6.1（DQ-14 採 (b) 寫入正文；PR #3 審查第 3、4(b) 點併入 PR-1c）；0.6（PR-1b 合併後：新增 DQ-14、PR-1c 與探測 PR B 的順序）；0.5.1（v0.5 簽核後釐清：實作 agent 依 agent-dev-workflow 5.1 回報的 4 項設計問題）；0.5（PR-1 審查 N-1～N-6 與實作、測試 agent 回報的修正；新增 PR-1b；含設計審查第 3 輪修訂） |
+| 版本 | 0.7（新增 DQ-15：CI 外部相依的逾時與穩定性，含已實測的選項 (g) 與 (g′)＋(c)，建議後者；缺陷 D-macOS 的修正規格；新增 PR-1d（ci.yml 依 DQ-15 決定）；v0.7 待簽核）；0.6.3（設計缺陷修正：相容偵測，依 PR #4 審查紀錄）；0.6.2（簽核後釐清：實作 agent 回報的 6 點）；0.6.1（DQ-14 採 (b) 寫入正文；PR #3 審查第 3、4(b) 點併入 PR-1c）；0.6（PR-1b 合併後：新增 DQ-14、PR-1c 與探測 PR B 的順序）；0.5.1（v0.5 簽核後釐清：實作 agent 依 agent-dev-workflow 5.1 回報的 4 項設計問題）；0.5（PR-1 審查 N-1～N-6 與實作、測試 agent 回報的修正；新增 PR-1b；含設計審查第 3 輪修訂） |
 | 日期 | 2026-11-18 |
 | 狀態 | v0.5 已簽核（2026-11-10 16:06（Asia/Taipei），產品負責人，見第 5 節）；v0.5.1 已確認（2026-11-10 16:47（Asia/Taipei））；v0.4 已簽核（2026-11-09 16:12）。DQ-1～DQ-13 已關閉（DQ-13 於 2026-11-10 16:47 採 (b)，規則寫入 review-process.md 第 4 節「偵測形式」）。v0.6 已簽核（2026-11-10 22:12（Asia/Taipei））；DQ-14 採 (b)，DQ-1～DQ-14 已全部關閉；v0.6.1 依該次決定展開、v0.6.2 為簽核後釐清、v0.6.3 為設計缺陷修正，皆不需另行簽核（第 5 節）。**v0.7 待產品負責人簽核；DQ-15 待決定**（第 2、3 節） |
 | 依據 | docs/requirements.md v1.1（已簽核）；docs/workflow.md v0.2；docs/design/design-review.md（設計審查紀錄）；產品負責人 2026-11-09 16:02 對 DQ-1～DQ-10 的決定；PR #1 審查紀錄（N-1～N-6）與實作、測試 agent 的回報；PR #3 審查紀錄（2026-11-10 09:17Z）；產品負責人 2026-11-10 21:37 同意統籌 agent 的建議；產品負責人 2026-11-10 22:12（Asia/Taipei） 的決定；統籌 agent 2026-11-18 對探測 PR B（PR #5）`e2e (webkit)` 卡住的調查與日誌 |
 | 撰寫 | 設計 agent（agent-dev-workflow 第 3 節「設計 agent」） |
 
 ## 0. 上工檢查與已載入 skill（workflow.md 第 4.4 節）
+
+**v0.7 第 3 個 commit（同一工作階段，基於 1f34d49）：** 上工檢查同下方；輸入另加產品負責人 2026-11-18 15:54（「我不想讓美國那邊的網路速度影響到我的測試」）與 15:56（實測「三種瀏覽器都在 macOS 上加快取」）的指示、PR #7 量測紀錄（comment 6972670675）、PR #7 的 e2e 日誌與 `actions/cache` 的標籤。skill：software-design-phase 1.11 → 1.12（本次修訂）。
 
 **v0.7 第 2 個 commit（同一工作階段，基於 9dff913）：** 上工檢查同下方；輸入另加統籌 agent 轉達的產品負責人 2026-11-18 15:20 指示（先實測選項 (g)，跑通才更新 v0.7）、PR #6 量測紀錄（comment 6972345639，以 `gh api` 讀取）、統籌 agent 的查證與缺陷 D-macOS 回報；已讀 `scripts/` 6 支腳本的進入點與 `tests/unit/workflows.test.mjs`。skill：software-design-phase 1.10 → 1.11（本次修訂），其餘不變。
 
@@ -24,7 +26,7 @@
 |---|---|---|
 | agent-dev-workflow | 1.2 | 1.2（未修改；產品負責人維護） |
 | requirements-spec | 1.1 | 1.1（未修改；產品負責人維護） |
-| software-design-phase | 1.9 | 1.11（本次修訂：1.10 為第 1 個 commit，1.11 為第 2 個 commit；見其變更紀錄） |
+| software-design-phase | 1.9 | 1.12（本次修訂：1.10、1.11、1.12 依序為第 1、2、3 個 commit；見其變更紀錄） |
 
 **v0.6.1（同一工作階段 designer-pr1c-20261110，基於 2d64629）：** 上工檢查同下方 v0.6；輸入另加統籌 agent 轉達的產品負責人 2026-11-10 22:12（Asia/Taipei） 決定（DQ-14 採 (b)；PR #3 審查第 3、4(b) 點放進 PR-1c；簽核 v0.6）。skill 版本同下表（software-design-phase 1.8，本次未修改）。
 
@@ -88,7 +90,7 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 | card-preview.png、card-preview-min-size.png、card-preview-360.png | v0.2 | 預覽頁截圖（本機 Chromium；最小尺寸模擬為 108×108） |
 | design-review.md | — | 設計審查紀錄（審查 agent 撰寫，設計 agent 不修改） |
 
-可重用設計 skill：`.claude/skills/software-design-phase/SKILL.md`（1.11）。
+可重用設計 skill：`.claude/skills/software-design-phase/SKILL.md`（1.12）。
 
 版本號說明：v0.4 起設計文件組的受影響文件統一為 0.4（verification.md、review-process.md、cards.md、supplementary-acceptance.json 由 0.2 直接升為 0.4）。v0.5 只升受影響的文件（本文件、spec.md、module-test-standards.md、acceptance-test-plan.md、review-process.md、verification.md）；cards.md、supplementary-acceptance.json 維持 0.4，card-attributes.json、card-preview.html 與截圖維持 v0.2。v0.5.1 只升本文件、spec.md、module-test-standards.md、acceptance-test-plan.md、review-process.md；verification.md 維持 0.5。v0.6 升本文件、spec.md、review-process.md、module-test-standards.md、verification.md；acceptance-test-plan.md 維持 0.5.1（必要編號與骨架不變）。v0.6.1 升 spec.md、review-process.md、module-test-standards.md、verification.md、acceptance-test-plan.md 與本文件。v0.7 升本文件、spec.md、verification.md、module-test-standards.md；review-process.md（0.6.3）、acceptance-test-plan.md（0.6.1）與其餘檔案不受影響。
 
@@ -96,10 +98,10 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 
 **v0.7（探測 PR B 之後、PR-2 之前；待決定）：**
 
-1. **決定 DQ-15**（spec.md 12.7；第 16 節摘要）：CI 的外部相依（`npx playwright install --with-deps` 的 apt 鏡像與瀏覽器下載）變慢時，採 (a)～(g) 哪些做法。**建議 (a)＋(e)＋(g)**（依 2026-11-18 15:20 指示實測 (g) 後改寫）：WebKit 改在 `macos-15`、不加 `--with-deps`（PR #6 實測 3／3 通過，排隊 2～3 秒、安裝約 11 秒）；各 job 與安裝 step 加 `timeout-minutes`（`unit`、`acceptance-ids` 10 分鐘，`e2e` 30 分鐘，install step 10 分鐘）並訂「重跑失敗的 job 最多 2 次並記錄，仍逾時回報產品負責人」的程序；Ubuntu 上的 job 固定 `ubuntu-26.04`。**(g) 只解決 WebKit**：Chromium、Firefox 留在 Ubuntu，同日 PR #6 的 Firefox 在 AWS 上下載 13 分鐘，所以 (a) 仍必要。不採 (b)、(c)；(d) 與 (g′)（三種引擎都在 macOS）在 Ubuntu 的 e2e 再逾時 2 次以上時另開待決問題並以探測 PR 量測。卡住或逾時都**不違反** EQ-2、EQ-3、NFR-1，也不影響 EQ-12；任何選項都不得暫時移除必要檢查或以管理員繞過（12.7.2）。
-   - **一併確認：缺陷 D-macOS 排入 PR-1d**（spec.md 12.7.5）：6 支腳本經符號連結執行時什麼都不做並以 0 結束，其中 3 支檢查腳本會靜默通過；修正為以 realpath 比對。PR-1d 因此修改 `review-gate.mjs`，由 main 上的 PR-1c 版判定（合併前新版試算與人工確認 (xiii)），**合併後需要步驟 8b，建議以不合併的探測 PR D 執行**，之後才開 PR-2（理由見 12.7.4）。
+1. **決定 DQ-15**（spec.md 12.7；第 16 節摘要）：CI 的外部相依變慢時，採 (a)～(g′) 哪些做法。**建議 (g′)＋(c)＋(a)＋(e)**（依 2026-11-18 15:54 的目標「不讓美國那邊的網路速度影響測試」與 15:56 指示的 PR #7 實測改寫）：三種瀏覽器的 e2e 都在 `macos-15` 執行並以 `actions/cache` 快取 Playwright 瀏覽器（PR #7：9／9 通過，e2e 不再使用 Ubuntu 套件鏡像）；各 job 與安裝 step 加 `timeout-minutes` 並訂重跑程序；`unit`、`acceptance-ids` 固定 `ubuntu-26.04`（它們不下載外部套件，固定只為環境不變，可不採）。(g) 由 (g′) 取代；不採 (b)、(d)。剩餘的外部依賴（快取未命中時的 Playwright 下載站、npm registry、Node.js 本體、GitHub 自身）、macOS 的限制、對 NFR-1、NFR-3、NFR-5、NFR-6 與 UAT 的影響、快取的汙染風險（PR 不能寫入 main 範圍，已查證）見 spec.md 12.7.4。卡住或逾時都**不違反** EQ-2、EQ-3、NFR-1，也不影響 EQ-12；任何選項都不得暫時移除必要檢查或以管理員繞過（12.7.2）。
+   - **一併確認：缺陷 D-macOS 排入 PR-1d**（spec.md 12.7.5）：6 支腳本經符號連結執行時什麼都不做並以 0 結束，其中 3 支檢查腳本會靜默通過；修正為以 realpath 比對。採 (g′) 時三個 e2e 都在 macOS，沒有這個修正就全部失敗。PR-1d 修改 `review-gate.mjs`，由 main 上的 PR-1c 版判定（合併前新版試算與人工確認 (xiii)），**合併後仍需要步驟 8b，建議以不合併的探測 PR D 執行**，並同時確認新 PR 從 main 範圍的快取命中；之後才開 PR-2（理由見 12.7.4）。
 2. **簽核 v0.7**（第 5 節「v0.7 待簽核」一列）。v0.7 沒有改變產品行為與既有檢查規則；新增的是 DQ-15、PR-1d（內容依 DQ-15 決定）與設計 skill 1.10。
-3. 決定與簽核後，設計 agent 在下一個 commit 把採用的選項展開為 spec.md 12.7 與 12.1 的正文、替換「依 DQ-15 決定」、刪除「決定前維持現狀」（software-design-phase 3.4.1 第 1a 點）；之後實作 agent 開 PR-1d（以本分支為基礎，設計文件隨 PR-1d 合併）。PR-1d 合併前不需探測 PR（(g) 已在 PR #6 量測）；合併後以探測 PR D 做步驟 8b（spec.md 12.7.4）。
+3. 決定與簽核後，設計 agent 在下一個 commit 把採用的選項展開為 spec.md 12.7 與 12.1 的正文、替換「依 DQ-15 決定」、刪除「決定前維持現狀」（software-design-phase 3.4.1 第 1a 點）；之後實作 agent 開 PR-1d（以本分支為基礎，設計文件隨 PR-1d 合併）。PR-1d 合併前不需探測 PR（(g′)＋(c) 已在 PR #7 量測）；合併後以探測 PR D 做步驟 8b 並確認 main 快取命中（spec.md 12.7.4）。
 
 **給統籌 agent 的已知事項（不屬產品負責人決定）：** (1) 探測 PR B 的步驟 8b 觀察的是 `review-record`，不依賴 `e2e (webkit)`；是否等待 webkit 重跑完成再關閉探測 PR B，由統籌 agent 判斷。(2) 需求文件沒有 CI 執行時間的數字（requirements-spec 3.5 建議要有）；設計不修改需求，若產品負責人希望把逾時或可用性寫成需求，由統籌 agent 依 requirements-spec 處理。(3) 統籌 agent 轉述的 macOS 標籤含 `macos-14`；設計 agent 讀到的現行表格沒有 `macos-14`（runner-images README：2026-11-02 退役），本設計用 `macos-15` 不受影響（verification.md 2.8 (6)）。(4) 統籌 agent 轉述的「2026-11-11 同一步驟 8 秒（17.7 MB/s）」與設計 agent 讀到的執行 42993416924（18 秒，7.7 MB/s）不同，可能為不同執行，不影響結論（verification.md 2.8 (5)）。
 
@@ -166,7 +168,7 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 | DQ-12 | AC-EQ-2「CI 失敗的 PR 合併被拒」以什麼驗證 | **採 (a)＋(b)，都在探測 PR A 上執行**（2026-11-10 16:06）。原選項：(a) 以 `review-record` 失敗驗證（EQ-11 規定審查檢查屬 CI）；(b) 另以 `unit` 失敗驗證。建議：採 DQ-11 (d) 時兩者都在探測 PR 上做，否則 (a) | spec.md 第 16 節、12.6 步驟 8 | 已關閉 |
 | DQ-13 | 審查紀錄的偵測形式是否再收緊（v0.5.1 新增） | **採 (b)**（2026-11-10 16:47（Asia/Taipei），產品負責人決定）。原 選項：(a) 維持 v0.5.1、殘餘風險由審查與抽查補足；(b) 擴大偵測：移除 HTML、跳脫、核取方塊、連結語法後，去除行首所有非字母數字字元與編號；(c) (b)＋標記行以外不得有 HTML。建議 (b)。PR-1b 合併前決定 | spec.md 第 16 節；review-process.md 第 4 節「偵測形式」（F1～F8、T1、T2 與判定表，2026-11-10 寫入正文） | 已關閉 |
 | DQ-14 | PR-1b 版 review-gate 仍可被繞過的寫法是否收緊（v0.6 新增；附帶：作者段落的半形冒號） | **採 (b)，附帶問題一併處理**（2026-11-10 22:12（Asia/Taipei），產品負責人決定；同時決定 PR #3 審查第 3、4(b) 點放進 PR-1c）。原選項：(a) 依 GFM 模擬渲染重寫偵測；(b) 正規化前拒絕字元參照、可忽略字元、結合符號、註解與跨行標籤，加表格邊界規則（表後空行、只能有一個分隔列）；(c) 限定極小語法子集；(d) 以 GitHub 的 `body_html` 判定；(e) 不修改。建議 (b)＋附帶問題 | review-process.md 4.1（v0.6.1 正文）；spec.md 12.2 第 9d、9e 點、12.2.1 第 4 項、12.4、12.6、第 13、14、16 節；module-test-standards.md M12；acceptance-test-plan.md 第 4 節 | 已關閉 |
-| DQ-15 | CI 的外部相依變慢時如何處理（ci.yml 沒有逾時，job 最多 360 分鐘進行中、PR 無法合併；v0.7 新增） | **待決定。** 選項 (a) 只加逾時與重跑程序、(b) (a)＋安裝自動重試、(c) 快取瀏覽器、(d) Playwright 官方容器映像、(e) 固定 `runs-on`、(f) 不修改、(g) WebKit 改在 macOS（已實測）；建議 (a)＋(e)＋(g)，D-macOS 一併在 PR-1d 修正 | spec.md 12.7（12.7.5 為 D-macOS）、12.1（依 DQ-15 決定）、第 14 節 PR-1d、第 16 節；verification.md 2.8；module-test-standards.md M11～M13 | 待決定 |
+| DQ-15 | CI 的外部相依變慢時如何處理（ci.yml 沒有逾時，job 最多 360 分鐘進行中、PR 無法合併；v0.7 新增） | **待決定。** 選項 (a) 逾時與重跑程序、(b) 安裝自動重試、(c) 快取瀏覽器、(d) Playwright 官方容器映像、(e) 固定 `runs-on`、(f) 不修改、(g) 只有 WebKit 在 macOS（PR #6 實測）、(g′)＋(c) 三種瀏覽器在 macOS 並快取（PR #7 實測）；建議 (g′)＋(c)＋(a)＋(e)，D-macOS 一併在 PR-1d 修正 | spec.md 12.7（12.7.5 為 D-macOS）、12.1（依 DQ-15 決定）、第 14 節 PR-1d、第 16 節；verification.md 2.8；module-test-standards.md M11～M13 | 待決定 |
 
 ## 4. 修訂紀錄
 
@@ -413,11 +415,15 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 | 缺陷 D-macOS（統籌 agent 回報；設計 agent 在 Linux 以符號連結重現） | **實作缺陷**（設計沒有規定進入點判斷的寫法，屬 skill 缺漏，見 skill 列） | 新增 12.7.5：影響分類（3 支檢查腳本靜默通過）、6 支一致的修正規格與不採 `import.meta.main`／共用模組的理由、同類風險（`node --test` 的 glob 無對應檔案時以 0 結束，實測）與修正；排入 PR-1d；PR-1d 由 PR-1c 版判定的確認 (xiii)、合併後探測 PR D | spec.md 12.7.4、12.7.5、第 14 節；module-test-standards.md M11、M12；verification.md 2.8 (7) |
 | skill（第 2 個 commit） | agent-dev-workflow 7.3：(1) 「是否直接執行」的判斷不容忍符號連結、(2) 檢查腳本或測試執行器在沒有執行任何檢查時以 0 結束、(3) 對策只移除部分 job 的外部相依時沒有寫明其餘 job 的風險——其他專案也會發生，skill 沒有提醒 | software-design-phase 升為 1.11：5.2 新增兩列、1.10 的一列補一句；第 8 節新增 1 列；第 9 節新增 1 項 | .claude/skills/software-design-phase/SKILL.md |
 
+| 產品負責人 2026-11-18 15:54「我不想讓美國那邊的網路速度影響到我的測試」；15:56 指示實測「三種瀏覽器都在 macOS 上加快取」；PR #7 實測通過（comment 6972670675） | 目標明確化與新選項；(g′)＋(c) 原為未實測的變體 | 12.7.3 新增 (g′)＋(c) 一列；12.7.4 以「外部網路速度不影響測試」為準重新評估，建議改為 (g′)＋(c)＋(a)＋(e)、(g) 由 (g′) 取代；寫明剩餘外部依賴、macOS 限制、對 NFR 與 UAT 的影響、快取的範圍與汙染風險；PR-1d 的範圍與合併前後確認；探測 PR D 另確認 main 快取命中。設計 agent 獨立判斷：與統籌 agent 的理解一致；另指出 `unit`、`acceptance-ids` 固定 `ubuntu-26.04` 對本目標沒有作用（可不採）、(c) 的價值是去除外部依賴而非速度、PR #7 的命中來自自己的範圍，新 PR 自 main 命中尚未驗證 | spec.md 12.7.1、12.7.3、12.7.4、12.7.5、第 14、16 節；verification.md 2.8 (8)；module-test-standards.md M13 |
+| 查證 `actions/cache` v6.1.0 | 符合本專案「完整 commit SHA 固定」的規則；發布日期未查證（Releases API 不可用），commit 日期 2026-06-23 | 寫入 verification.md 2.8 (8) | verification.md 2.8 (8) |
+| skill（第 3 個 commit） | agent-dev-workflow 7.3：以快取消除外部下載時，「PR 能否寫入預設分支使用的快取」「快取路徑是否與受檢查的檔案重疊」「命中是否來自自己的範圍」其他專案也會遇到，skill 沒有提醒 | software-design-phase 升為 1.12：5.2 新增一列；第 9 節新增一項 | .claude/skills/software-design-phase/SKILL.md |
+
 **回歸檢查（software-design-phase 第 9 節，含 1.10 新增的項目）：**
 
 - **產品行為：** 不變。spec.md 第 4～11 節、DOM 測試介面、狀態表沒有修改。
 - **沒有放寬、決定前不實作：** ci.yml、腳本、測試都沒有修改；12.7 寫明決定前維持現狀。每個選項都保留必要檢查名稱、`check-acceptance-results` 步驟與 `retries: 0`；12.7.2 明列「移除必要檢查、管理員繞過、`continue-on-error`」為違反 EQ-2／NFR-1 的做法。
-- **標示：** `grep -rn "依 DQ-15 決定" docs/design/` 命中 spec.md 12.1、12.7 標題、第 14 節（PR-1d 說明與切分列），module-test-standards.md M13，以及本文件、變更紀錄；沒有任何章節先選一個選項（第 14 節 PR-1d 列的具體值標為「建議 (a)＋(e)＋(g) 時」）。D-macOS 的修正不依賴 DQ-15，寫為確定的修正規格（12.7.5）。
+- **標示：** `grep -rn "依 DQ-15 決定" docs/design/` 命中 spec.md 12.1、12.7 標題、第 14 節（PR-1d 說明與切分列），module-test-standards.md M13，以及本文件、變更紀錄；沒有任何章節先選一個選項（第 14 節 PR-1d 列的具體值標為「建議 (g′)＋(c)＋(a)＋(e) 時」）。D-macOS 的修正不依賴 DQ-15，寫為確定的修正規格（12.7.5）。
 - **狀態一致：** spec.md、verification.md、module-test-standards.md、本文件的表頭寫 v0.7 待簽核（spec.md 與本文件另寫 DQ-15 待決定）；spec.md 第 16 節與本文件第 3 節標題為「DQ-1～DQ-14 已關閉；DQ-15 待決定」；review-process.md、acceptance-test-plan.md 不受影響，版本不變。
 - **追溯與骨架：** 需求追溯表、必要編號清單、`supplementary-acceptance.json` 沒有修改；本機 `node scripts/check-acceptance-ids.mjs` 通過（骨架 67 個），`npm run test:unit` 503 個測試 498 通過、5 略過、0 失敗（2026-11-18，本分支）。
 - **決定之間的交互：** DQ-15 × DQ-9：同樣是「重跑有限次數並記錄，仍失敗由產品負責人判定」，範圍分別為 PR 的 CI 與部署，不重疊。DQ-15 × DQ-11 (a)：(a) 的「暫時移除必要檢查」只適用於 review-gate 無法寫入狀態，不適用於 e2e 逾時（12.7.4）。DQ-15 × 12.3 `retries: 0`：(b) 只重試安裝，不重試測試。DQ-15 × EQ-11：重跑不產生新 commit，處理程序優先重跑，不以推送新 commit 解除。
@@ -435,7 +441,7 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 | 2026-11-10 22:12（Asia/Taipei） | （不需另行簽核） | 設計文件 v0.6.1（branch `pr-1c/review-gate-hardening`，記錄本列的 commit） | — | v0.6.1：依產品負責人 2026-11-10 22:12 決定展開，不需另行簽核（DQ-14 (b) 寫入正文；第 3、4(b) 點的設計擴大 PR-1c 範圍，屬該次明確同意的內容） |
 | 2026-11-10 | （不需另行簽核） | 設計文件 v0.6.2（branch `pr-1c/review-gate-hardening`，記錄本列的 commit） | — | v0.6.2：簽核後釐清，依實作 agent 回報的 6 點使設計文字與實作一致或更正矛盾，不改產品負責人 2026-11-10 22:12 的決定、不放寬任何檢查，不需另行簽核 |
 | 2026-11-11 | （不需另行簽核） | 設計文件 v0.6.3（branch `pr-1c/review-gate-hardening`，記錄本列的 commit） | — | v0.6.3：依 PR #4 審查紀錄（comment 6790734907）修正設計缺陷，恢復 DQ-14 (b) 已決定的「只增加無效」性質，不改產品負責人的決定，不需另行簽核 |
-| （v0.7 待簽核） | 產品負責人 | 設計文件 v0.7（branch `design/dq-15-ci-timeout`，記錄本列的 commit）；需求文件 v1.1 | DQ-15（待決定；建議 (a)＋(e)＋(g)） | v0.7 不改產品行為與既有檢查規則；新增 DQ-15、缺陷 D-macOS 的修正規格（只增加執行檢查的情況）、PR-1d（ci.yml 依 DQ-15 決定）與設計 skill 1.11。PR-1d 的實作 commit 須在簽核與決定展開的 commit 之後 |
+| （v0.7 待簽核） | 產品負責人 | 設計文件 v0.7（branch `design/dq-15-ci-timeout`，記錄本列的 commit）；需求文件 v1.1 | DQ-15（待決定；建議 (g′)＋(c)＋(a)＋(e)） | v0.7 不改產品行為與既有檢查規則；新增 DQ-15、缺陷 D-macOS 的修正規格（只增加執行檢查的情況）、PR-1d（ci.yml 依 DQ-15 決定）與設計 skill 1.12。PR-1d 的實作 commit 須在簽核與決定展開的 commit 之後 |
 
 簽核日期必須早於第一個實作 PR 的建立日期。
 
@@ -459,3 +465,4 @@ v0.4 的上工檢查紀錄見 git 歷史（commit dfca62f 的本節）。
 | 0.6.3 | 2026-11-11 | 新增第 10 輪修訂紀錄（相容偵測、差分測試、給實作 agent 的工作）；第 1 節更新版本；第 5 節新增 v0.6.3 列；設計 skill 升為 1.9 | PR #4 審查紀錄（comment 6790734907） |
 | 0.7 | 2026-11-18 | 第 0 節新增 v0.7 上工檢查；第 1 節更新版本；第 2 節新增 v0.7 的決定事項與給統籌 agent 的已知事項；第 3 節新增 DQ-15；新增第 11 輪修訂紀錄；第 5 節新增「v0.7 待簽核」一列（既有列不變）；設計 skill 升為 1.10 | 統籌 agent 2026-11-18 對探測 PR B（PR #5）`e2e (webkit)` 卡住的調查 |
 | 0.7（選項 (g) 與 D-macOS） | 2026-11-18 | 同一版本內（仍待簽核）：第 0 節補第 2 個 commit 的上工檢查；第 2 節建議改為 (a)＋(e)＋(g) 並加入 D-macOS 與探測 PR D；第 3 節 DQ-15 更新；第 11 輪修訂紀錄補 4 列與回歸檢查；第 5 節 v0.7 列更新；設計 skill 升為 1.11 | 產品負責人 2026-11-18 15:20 指示實測 (g)；PR #6 量測紀錄；統籌 agent 的查證與 D-macOS 回報 |
+| 0.7（選項 (g′)＋(c)） | 2026-11-18 | 同一版本內（仍待簽核）：第 0 節補第 3 個 commit 的上工檢查；第 2 節建議改為 (g′)＋(c)＋(a)＋(e)；第 3 節 DQ-15 更新；第 11 輪修訂紀錄補 3 列；第 5 節 v0.7 列更新；設計 skill 升為 1.12 | 產品負責人 2026-11-18 15:54、15:56 的指示；PR #7 量測紀錄（comment 6972670675） |

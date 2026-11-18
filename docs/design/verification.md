@@ -2,7 +2,7 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.7（新增 2.8：CI 外部相依的逾時與穩定性，DQ-15 的依據；含選項 (g) 的 macOS 執行器查證與 PR #6 實測、D-macOS 的重現；v0.7 待簽核）；0.6.1（2.7 補 node:test 子測試的實測）；0.6（新增 2.7：PR-1b 合併後的平台狀態與 GFM 渲染實測，DQ-14 的依據）；0.5（`review-record` 的必要檢查改在 PR-1b 設定；PR-1 合併後的平台狀態紀錄） |
+| 版本 | 0.7（新增 2.8：CI 外部相依的逾時與穩定性，DQ-15 的依據；含選項 (g) 的 macOS 執行器查證與 PR #6 實測、D-macOS 的重現、(g′)＋(c) 的 PR #7 實測與快取安全性查證；v0.7 待簽核）；0.6.1（2.7 補 node:test 子測試的實測）；0.6（新增 2.7：PR-1b 合併後的平台狀態與 GFM 渲染實測，DQ-14 的依據）；0.5（`review-record` 的必要檢查改在 PR-1b 設定；PR-1 合併後的平台狀態紀錄） |
 | 日期 | 2026-11-18（查證日期 2026-11-04；第 2.6 節為 2026-11-09、第 2.7 節為 2026-11-10 以 API 讀取與本機實測；第 2.8 節為 2026-11-18 讀取官方文件原始檔與 API） |
 | 撰寫 | 設計 agent |
 | 依據 | docs/requirements.md v1.1（Q4、Q6 與查證相關內容與 v1.0 相同）第 12 節 Q4、Q6；第 8.2 節 A-1、A-2；第 8.4 節 |
@@ -261,7 +261,33 @@
 | `node --test` 的 glob 沒有對應任何檔案 | Node.js 22.23.4，`node --test 'nothing/**/*.test.mjs'` | 以 **0** 結束 | 實測 |
 | macOS 的 `os.tmpdir()` 經符號連結 | 統籌 agent 於 PR #6 的診斷步驟確認（`/var` → `/private/var`） | 經連結路徑執行 `build.mjs` 時沒有產生 `dist/` | 實測（統籌 agent） |
 
-**未查證、須在 DQ-15 決定後的 PR 實測：** job 因 `timeout-minutes` 中止時的結論值與「重跑失敗的 job」是否涵蓋它；`v1.63.0-noble` 在 MCR 的存在與拉取時間（採 (d) 時）；執行器 uid（採 (d) 時）；apt 在同一 job 內重試時是否沿用已下載的套件（採 (b) 時）；`timeout-minutes` 是否包含排隊時間；採 (g) 時 `--with-deps` 在 macOS 上的行為（設計不使用）、macOS 排隊的長期分布、macOS 上 NFR-3、NFR-6（PR-4）。
+**(8) 三種瀏覽器在 macOS 並快取（選項 (g′)＋(c)；v0.7 新增）**
+
+PR #7 實測（統籌 agent 紀錄 comment 6972670675；ci 執行 44262943300 attempt 1～3；設計 agent 另讀 attempt 1、3 的 6 個 e2e 日誌確認）：
+
+| 次 | 快取 | 結果 | 排隊 | 快取步驟 | 安裝 | job | 設計 agent 從日誌確認 |
+|---|---|---|---|---|---|---|---|
+| 1 | 未命中（建立） | chromium、firefox、webkit 皆 success | 2～3 s | 1 s | 4～12 s | 27～43 s | 三個 job 皆 `Cloud: MacCloud`；自 `https://cdn.playwright.dev/…` 下載瀏覽器（Chromium 另下載 headless shell，三者都下載 FFmpeg）到 `/Users/runner/Library/Caches/ms-playwright/`；最後「Cache saved with key: playwright-macOS-ARM64-<瀏覽器>-3819f208…」 |
+| 2 | 命中 | 皆 success | 2～3 s | 3～8 s | 1～2 s | 30～40 s | （未讀） |
+| 3 | 命中 | 皆 success | 2～3 s | 3～9 s | 1～2 s | 30～37 s | 「Cache restored from key: playwright-macOS-ARM64-…」；快取大小 Chromium 263,867,732 B、Firefox 104,416,176 B、WebKit 70,005,151 B；沒有「Downloading」；npm 快取 4,037,659 B |
+
+限制：3 次、同一時段；第 2、3 次的命中來自 PR #7 自己的範圍（第 1 次建立），**沒有驗證「新 PR 從 main 範圍的快取命中」**；版面與計時驗收在 PR-4 才轉實測。
+
+| 問題 | 結論 | 官方原文（節錄） | 來源 | 查證 |
+|---|---|---|---|---|
+| Playwright 在 macOS 的瀏覽器位置 | `~/Library/Caches/ms-playwright`（Linux 為 `~/.cache/ms-playwright`） | “`~/Library/Caches/ms-playwright` on macOS” | https://raw.githubusercontent.com/microsoft/playwright/v1.63.0/docs/src/browsers.md | 已查證 |
+| 快取未命中時的下載來源 | Microsoft 的 CDN；日誌中為 `cdn.playwright.dev` | “By default, Playwright downloads browsers from Microsoft's CDN.” | 同上；PR #7 日誌 | 已查證；實測 |
+| 誰能寫入 main（預設分支）範圍的快取 | 只有 `push`、`workflow_dispatch`、`repository_dispatch`、`delete`、`registry_package`、`page_build`、`schedule`；`pull_request_target`、`issue_comment`、`workflow_run` 等在預設分支執行的事件對該範圍唯讀；`pull_request` 建立的快取在合併 ref 範圍，不能寫入預設分支範圍 | “only these workflow triggers can create or overwrite caches in the default branch’s scope: * `push` …” “The `pull_request` event is not affected. Caches created by a `pull_request` run are already scoped to the merge ref (`refs/pull/.../merge`) and cannot be written to the default branch's scope.” | https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#cache-access-for-low-trust-workflow-triggers ；原始檔 https://raw.githubusercontent.com/github/docs/main/content/actions/reference/workflows-and-actions/dependency-caching.md | 已查證 |
+| 快取能否被改寫 | 不能修改既有快取，只能以新鍵建立；未命中時，job 成功才建立 | “You cannot change the contents of an existing cache. Instead, you can create a new cache with a new key.” “On a cache miss, the action automatically creates a new cache if the job completes successfully.” | 同上 | 已查證 |
+| 鍵的比對 | 先找完全相同的鍵，再找以該鍵為前綴的部分相符，最後才用 `restore-keys`；先在目前分支找，再到預設分支 | “First, it searches for an exact match to your provided `key`.” “If no exact match is found, it will search for partial matches of the `key`.” | 同上 | 已查證 |
+| 容量、淘汰、PR 快取的範圍 | 見 (3)：10 GB、7 天未存取即移除、PR 建立的快取只給該 PR 的重跑 | 見 (3) | 見 (3) | 已查證 |
+| `actions/cache` v6.1.0 的版本 | `git ls-remote --tags https://github.com/actions/cache`：`refs/tags/v6.1.0` 與 `refs/tags/v6` 都指向 `55cc8345863c7cc4c66a329aec7e433d2d1c52a9`（輕量標籤，沒有標籤自己的日期）。該 commit 為 2026-06-23T16:30:28-04:00 的「Merge pull request #1768 from jasongin/readonly-cache」；`package.json` 版本 6.1.0；`action.yml` 為 `using: 'node24'` | — | `git ls-remote`；以 `git fetch --depth=1` 取得該 commit 讀取 `package.json`、`action.yml` | 實測 |
+| v6.1.0 的發布日期 | GitHub Releases API 在本工作階段不可用（該版本庫的 API 存取未開放）；只知道 commit 日期為 2026-06-23 | — | — | **未查證** |
+| 是否符合本專案的固定版本規則 | 本專案規則為「第三方 action 以完整 commit SHA 固定」（`tests/unit/workflows.test.mjs`：`uses` 必須符合 `<owner>/<repo>@<40 位十六進位>`），並以註解標版本；`55cc834…` 為 40 位完整 SHA，符合。設計文件沒有「發布滿多久」的規則 | — | `tests/unit/workflows.test.mjs` 第 54～58 行（main 79ce6b1） | 實測（讀檔） |
+| Playwright 是否驗證快取中瀏覽器的完整性 | 未讀到原文 | — | — | **未查證** |
+| `npm ci` 在有 npm 快取時是否仍連線 registry；`setup-node` 是否需要下載 Node.js 本體 | 未讀到原文 | — | — | **未查證** |
+
+**未查證、須在 DQ-15 決定後的 PR 實測：** job 因 `timeout-minutes` 中止時的結論值與「重跑失敗的 job」是否涵蓋它；`v1.63.0-noble` 在 MCR 的存在與拉取時間（採 (d) 時）；執行器 uid（採 (d) 時）；apt 在同一 job 內重試時是否沿用已下載的套件（採 (b) 時）；`timeout-minutes` 是否包含排隊時間；採 (g) 時 `--with-deps` 在 macOS 上的行為（設計不使用）、macOS 排隊的長期分布、macOS 上 NFR-3、NFR-5、NFR-6（PR-4）；採 (g′)＋(c) 時：新 PR 從 main 範圍的快取命中（探測 PR D）、`actions/cache` v6.1.0 的發布日期、快取中瀏覽器的完整性驗證、`npm ci` 與 `setup-node` 的網路存取。
 
 ## 3. 結論摘要
 
@@ -287,3 +313,4 @@ v0.7：DQ-15 的未查證項目見 2.8 末段。
 | 0.6.1 | 2026-11-10 | 2.7 新增 node:test 子測試與並行的實測 | spec.md 12.2 第 9e 點 |
 | 0.7 | 2026-11-18 | 新增 2.8：GitHub Actions 的逾時、必要檢查狀態、重跑、多雲執行器、`-latest` 移轉、快取限制、容器 job 語法與 Playwright 官方映像（讀官方原始檔；docs.github.com、playwright.dev、MCR 無法連線）；本版本庫 e2e 執行紀錄的雲端、鏡像與下載時間；未查證項目 | spec.md v0.7 DQ-15（探測 PR B 的 `e2e (webkit)` 卡在 `--with-deps`） |
 | 0.7（選項 (g) 與 D-macOS） | 2026-11-18 | 2.8 (5) 補 PR #6 的紀錄（Firefox 在 AWS 上 13 分 4 秒、WebKit 在 MacCloud）；新增 (6) macOS 執行器（免費、標籤與規格、MacCloud、並行上限、Playwright 支援與 macOS 不需系統相依；`macos-14` 已不在表中）與 (7) 直接執行判斷與符號連結、`node --test` 無對應檔案時以 0 結束的實測；未查證項目補充 | 產品負責人 2026-11-18 15:20 指示實測 (g)；統籌 agent 的查證與 D-macOS 回報 |
+| 0.7（選項 (g′)＋(c)） | 2026-11-18 | 2.8 新增 (8)：PR #7 的實測（含設計 agent 讀日誌確認的快取大小與下載來源）、Playwright 在 macOS 的瀏覽器位置與下載來源、快取的寫入範圍（PR 不能寫入 main 範圍）、不可改寫、鍵的比對、`actions/cache` v6.1.0 的標籤與 commit、固定版本規則；未查證項目補充 | 產品負責人 2026-11-18 15:54、15:56 的指示；PR #7 量測紀錄 |
