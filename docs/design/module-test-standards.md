@@ -2,8 +2,8 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.6.3（M12 補相容偵測的案例與差分測試）；0.6.2（M12 補 v0.6.2 釐清的邊界）；0.6.1（M12 寫入 DQ-14 (b) 與 12.2 第 9d、9e 點、12.2.1 第 4 項的測試範圍）；0.6（M12 標示 DQ-14 待決定的 review-gate 邊界；M13 的 AC-EQ-11 證據改在探測 PR B）；0.5.1（簽核後釐清：M12 邊界補偵測形式、結果檔交接、全域錯誤與只含骨架的檔案）；0.5（M12 的檢查腳本邊界依 spec.md v0.5 修訂；新增執行結果檢查） |
-| 日期 | 2026-11-10 |
+| 版本 | 0.7（M13 標示 ci.yml 逾時與 `runs-on` 的測試範圍依 DQ-15 決定；v0.7 待簽核）；0.6.3（M12 補相容偵測的案例與差分測試）；0.6.2（M12 補 v0.6.2 釐清的邊界）；0.6.1（M12 寫入 DQ-14 (b) 與 12.2 第 9d、9e 點、12.2.1 第 4 項的測試範圍）；0.6（M12 標示 DQ-14 待決定的 review-gate 邊界；M13 的 AC-EQ-11 證據改在探測 PR B）；0.5.1（簽核後釐清：M12 邊界補偵測形式、結果檔交接、全域錯誤與只含骨架的檔案）；0.5（M12 的檢查腳本邊界依 spec.md v0.5 修訂；新增執行結果檢查） |
+| 日期 | 2026-11-18 |
 | 狀態 | v0.4 已簽核（2026-11-09 16:12）；v0.5 已簽核（2026-11-10 16:06）；v0.5.1 已確認（2026-11-10 16:47）（EQ-6）；v0.6 已簽核（2026-11-10 22:12（Asia/Taipei））；v0.6.1 依該次決定展開 |
 | 依據 | docs/requirements.md v1.1；spec.md v0.5.1；review-process.md v0.5.1；agent-dev-workflow 第 3.1 節（測試分工）；PR #1 審查紀錄 N-1、N-2 |
 
@@ -154,6 +154,7 @@
 | 對應 | EQ-1、EQ-2、EQ-3、EQ-11、EQ-12、NFR-1 |
 | 驗證 | 人工（AC-EQ-1、AC-EQ-2、AC-EQ-3、AC-EQ-11、AC-EQ-12），由產品負責人依 spec.md 12.6 步驟 8 執行；AC-EQ-11 與 AC-EQ-2 的合併被拒在 PR-1b 執行（v0.5；實際在探測 PR A 完成）。v0.6：AC-EQ-11 描述主分支版本的證據改在 PR-1c 合併後的探測 PR B（12.6 步驟 8b）；PR-1b 版不做步驟 8b |
 | v0.5 補充 | e2e job 的 `BUILD_SHA` 為 job 層級，建置與兩個 Playwright 步驟都取得同一個值；`unit` 與 `e2e` job 含執行結果檢查步驟；job 名稱不變（spec.md 12.1）。PR-1 已有的工作流程單元測試（`tests/unit/workflows.test.mjs`）依此補充 |
+| v0.7 補充（依 DQ-15 決定） | 決定後，`tests/unit/workflows.test.mjs` 依採用的選項補：ci.yml 每個 job 有 `timeout-minutes` 且值為 spec.md 12.7 決定的值（建議 (a) 時 `unit`、`acceptance-ids` 10、`e2e` 30，install step 10）；ci.yml 任何 step 與 job 都沒有 `continue-on-error`；`runs-on` 為決定的值（建議 (e) 時 `ubuntu-26.04`）；job 名稱與必要檢查名稱不變。採 (d) 時另測：`container.image` 的標籤版本等於 `package.json` 的 `@playwright/test` 版本、不含 `playwright install` step。決定前不新增這些測試 |
 
 ---
 
@@ -262,3 +263,4 @@
 | 0.6.1 | 2026-11-10 | M12：以 DQ-14 (b) 的確定規則取代「依 DQ-14 決定」的範圍，加入作者段落、候選判定、`detection.mjs`、12.2 第 9d、9e 點與 12.2.1 第 4 項的邊界。追溯表與 Must 集合不變 | 產品負責人 2026-11-10 22:12（Asia/Taipei） 的決定 |
 | 0.6.2 | 2026-11-10 | M12 補 v0.6.2 釐清的邊界（X7 巢狀、作者段落行號與 X1、`parseAuthorSessionsRaw` 的錯誤、9d 修飾變體與 `describe`、空前綴的樣板 `describe`）。追溯表不變 | 實作 agent 依 agent-dev-workflow 5.1 回報的 6 點（branch `pr-1c-impl`，head 2cc1fa4；統籌 agent 轉達） |
 | 0.6.3 | 2026-11-11 | M12 補相容偵測：N1～N12、`legacyFieldForm`／`legacyIsTableLine` 與 fa05bbb 一致、新舊兩版的差分單元測試（以固定的 PR-1b 版複本為對照）。追溯表不變 | PR #4 審查紀錄（comment 6790734907） |
+| 0.7 | 2026-11-18 | M13 新增「v0.7 補充（依 DQ-15 決定）」：決定後 ci.yml 逾時、`continue-on-error`、`runs-on`（與採 (d) 時的映像版本）的工作流程單元測試範圍 | spec.md v0.7 DQ-15 |
