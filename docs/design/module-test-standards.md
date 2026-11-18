@@ -2,7 +2,7 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.7（M11、M12 新增 D-macOS 的案例（經符號連結執行、6 支一致、模組單元測試檔為 0）；M13 寫入 ci.yml 逾時、`runs-on`、e2e 在 macOS 與瀏覽器快取的測試範圍；v0.7 已簽核（2026-11-18 16:20（Asia/Taipei）；DQ-15 採 (g′)＋(c)＋(a)＋(e)））；0.6.3（M12 補相容偵測的案例與差分測試）；0.6.2（M12 補 v0.6.2 釐清的邊界）；0.6.1（M12 寫入 DQ-14 (b) 與 12.2 第 9d、9e 點、12.2.1 第 4 項的測試範圍）；0.6（M12 標示 DQ-14 待決定的 review-gate 邊界；M13 的 AC-EQ-11 證據改在探測 PR B）；0.5.1（簽核後釐清：M12 邊界補偵測形式、結果檔交接、全域錯誤與只含骨架的檔案）；0.5（M12 的檢查腳本邊界依 spec.md v0.5 修訂；新增執行結果檢查） |
+| 版本 | 0.7.1（簽核後釐清：M12 的 `serve` 失敗輸入改為缺少目錄參數並加正向案例；`tests/unit/` 為空的檢查寫明結束碼與層次）；0.7（M11、M12 新增 D-macOS 的案例（經符號連結執行、6 支一致、模組單元測試檔為 0）；M13 寫入 ci.yml 逾時、`runs-on`、e2e 在 macOS 與瀏覽器快取的測試範圍；v0.7 已簽核（2026-11-18 16:20（Asia/Taipei）；DQ-15 採 (g′)＋(c)＋(a)＋(e)））；0.6.3（M12 補相容偵測的案例與差分測試）；0.6.2（M12 補 v0.6.2 釐清的邊界）；0.6.1（M12 寫入 DQ-14 (b) 與 12.2 第 9d、9e 點、12.2.1 第 4 項的測試範圍）；0.6（M12 標示 DQ-14 待決定的 review-gate 邊界；M13 的 AC-EQ-11 證據改在探測 PR B）；0.5.1（簽核後釐清：M12 邊界補偵測形式、結果檔交接、全域錯誤與只含骨架的檔案）；0.5（M12 的檢查腳本邊界依 spec.md v0.5 修訂；新增執行結果檢查） |
 | 日期 | 2026-11-18 |
 | 狀態 | v0.4 已簽核（2026-11-09 16:12）；v0.5 已簽核（2026-11-10 16:06）；v0.5.1 已確認（2026-11-10 16:47）（EQ-6）；v0.6 已簽核（2026-11-10 22:12（Asia/Taipei））；v0.6.1 依該次決定展開；v0.7 已簽核（2026-11-18 16:20（Asia/Taipei）；DQ-15 採 (g′)＋(c)＋(a)＋(e)） |
 | 依據 | docs/requirements.md v1.1；spec.md v0.5.1；review-process.md v0.5.1；agent-dev-workflow 第 3.1 節（測試分工）；PR #1 審查紀錄 N-1、N-2 |
@@ -146,7 +146,7 @@
 | 對應 | EQ-4、EQ-5、EQ-11、workflow.md 4.4；AC-EQ-4 |
 | 單元測試 | check-pr-body、review-gate、check-acceptance-ids、check-acceptance-results、acceptance-reporter、acceptance-reporter-pw 的內部函式（實作 agent；reporter 以本次實測格式的事件序列為測試資料）。`tests/support/assertions.mjs` 由測試 agent 撰寫，其行為由 AC-EQ-4 測試或其自身的驗收測試涵蓋（以只含空本體、吞掉斷言的測試資料執行 CI 指令，確認結果檢查失敗） |
 | 驗收測試 | AC-EQ-4（U 層，測試 agent）；AC-EQ-11、AC-EQ-2 由產品負責人人工驗收 |
-| v0.7 補充（D-macOS，PR-1d；spec.md 12.7.5） | (1) **經符號連結執行必須執行並得到與實際路徑相同的結果**：`check-acceptance-ids`、`check-acceptance-results`、`check-pr-body`、`review-gate`、`serve` 各以一個「必然失敗或必然報錯」的輸入（例：`check-acceptance-results` 傳不存在的結果檔；`check-pr-body` 傳不合格的 `--body-file`；`review-gate` 不設 `GITHUB_TOKEN`；`serve` 傳不存在的目錄；`check-acceptance-ids` 以 `tests/unit/` 為空的暫存版本庫複本）經實際路徑與經符號連結各執行一次，結束碼相同且**不為 0**、輸出含相同的錯誤訊息（反例：修正前經符號連結為 0 且沒有輸出）；`check-acceptance-ids` 另以版本庫本身經符號連結執行，結束碼 0 且輸出含「acceptance-ids：通過」。(2) **6 支一致**：靜態測試確認 6 支腳本都含 spec.md 12.7.5 規定的進入點判斷那一行、沒有任何一支仍含 `path.resolve(process.argv[1])`、進入點判斷外沒有 `try`。(3) `check-acceptance-ids` 在 `tests/unit/` 下沒有任何 `*.test.mjs` 時失敗並輸出「tests/unit/ 下沒有任何模組單元測試檔」；有 1 個時不因此失敗。(4) 變異檢查（記入 PR 說明）：把任一支的判斷改回 `path.resolve` 時 (1) 或 (2) 失敗。測試名稱不得含驗收編號 |
+| v0.7 補充（D-macOS，PR-1d；spec.md 12.7.5） | (1) **經符號連結執行必須執行並得到與實際路徑相同的結果**：`check-acceptance-ids`、`check-acceptance-results`、`check-pr-body`、`review-gate`、`serve` 各以一個「必然失敗或必然報錯」的輸入（例：`check-acceptance-results` 傳不存在的結果檔；`check-pr-body` 傳不合格的 `--body-file`；`review-gate` 不設 `GITHUB_TOKEN`；`serve` 不傳目錄參數（以 2 結束；v0.7.1 更正：傳不存在的目錄時伺服器照常啟動、每個請求回 404，不會失敗）；`check-acceptance-ids` 以 `tests/unit/` 為空的暫存版本庫複本）經實際路徑與經符號連結各執行一次，結束碼相同且**不為 0**、輸出含相同的錯誤訊息（反例：修正前經符號連結為 0 且沒有輸出）；`check-acceptance-ids` 另以版本庫本身經符號連結執行，結束碼 0 且輸出含「acceptance-ids：通過」。(2) **6 支一致**：靜態測試確認 6 支腳本都含 spec.md 12.7.5 規定的進入點判斷那一行、沒有任何一支仍含 `path.resolve(process.argv[1])`、進入點判斷外沒有 `try`。(3) `check-acceptance-ids` 在 `tests/unit/` 下沒有任何 `*.test.mjs` 時以 **1** 結束並輸出「tests/unit/ 下沒有任何模組單元測試檔」；有 1 個時不因此失敗（v0.7.1：判定在 CLI 外層，以匯出的 `unitTestFilesIssue` 測試純函式：空清單回傳該訊息、非空回傳 null；`runCheck` 的結果不因 `tests/unit/` 為空而改變；CLI 以 `tests/unit/` 為空的暫存版本庫複本執行時以 1 結束）。(3a) `serve` 的正向案例（v0.7.1）：經符號連結啟動時印出監聽位址（與經實際路徑相同的格式），測試結束時關閉。(4) 變異檢查（記入 PR 說明）：把任一支的判斷改回 `path.resolve` 時 (1) 或 (2) 失敗。測試名稱不得含驗收編號 |
 
 ### M13 工作流程與 GitHub 設定
 
@@ -269,3 +269,4 @@
 | 0.7（選項 (g) 與 D-macOS） | 2026-11-18 | M11、M12 新增 D-macOS 的案例（經符號連結執行、6 支一致、`tests/unit/` 為空即失敗、變異檢查）；M13 的 v0.7 補充加入 (g) 的 matrix 與 install step、`unit` 的 glob 逐字固定 | spec.md v0.7 12.7.5；PR #6 |
 | 0.7（選項 (g′)＋(c)） | 2026-11-18 | M13 的 v0.7 補充改為 (g′)＋(c)：e2e 在 `macos-15`、沒有 `--with-deps`、快取 step 的 action、路徑、鍵與不設 `restore-keys`、不以 `cache-hit` 跳過步驟 | spec.md v0.7 12.7.4；PR #7 |
 | 0.7（簽核與 DQ-15 決定展開） | 2026-11-18 | 表頭記錄 v0.7 簽核；M13 的 v0.7 補充改為確定的測試範圍（刪除「依 DQ-15 決定」「決定前不新增」與 (d) 的分支） | 產品負責人 2026-11-18 16:20（Asia/Taipei）的決定；software-design-phase 3.4.1 第 1a 點 |
+| 0.7.1（簽核後釐清） | 2026-11-18 | M12 v0.7 補充：`serve` 的失敗輸入改為缺少目錄參數並加經符號連結啟動的正向案例；`tests/unit/` 為空的檢查寫明結束碼 1、`unitTestFilesIssue` 的純函式案例與 `runCheck` 不受影響 | 實作 agent 依 agent-dev-workflow 5.1 回報（PR #8，head 88589fd） |
