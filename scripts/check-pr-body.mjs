@@ -7,7 +7,7 @@
 //
 // 判定邏輯為純函式 evaluatePrBody，供模組單元測試呼叫；review-gate 共用 validateAuthorSection
 // （review-process.md 4.1「作者段落」）。偵測形式與字元判定自 scripts/detection.mjs 匯入（同一份實作）。
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fieldForm, firstCharRule } from './detection.mjs';
@@ -314,6 +314,6 @@ function main() {
   console.log('pr-body：通過');
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   main();
 }

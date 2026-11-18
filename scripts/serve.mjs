@@ -1,6 +1,7 @@
 // 本機靜態伺服器（spec.md 第 3、11 節）。只用 Node.js 內建 http。
 // 用法：node scripts/serve.mjs <目錄> [連接埠]；連接埠預設取環境變數 PORT，再預設 4173。
 import { createServer } from 'node:http';
+import { realpathSync } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -90,7 +91,7 @@ async function main() {
   console.log(`serve: http://${address}:${actual}/ → ${path.resolve(dir)}`);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   main().catch((err) => {
     console.error(err);
     process.exit(1);

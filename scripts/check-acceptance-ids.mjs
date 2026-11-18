@@ -21,7 +21,7 @@
 //
 // 本檔必須只依賴 Node.js 內建模組（驗收測試會把本檔單獨複製到暫存版本庫執行）。
 // 判定邏輯全部是可匯出的純函式，供模組單元測試、AC-EQ-4 驗收測試與 check-acceptance-results 呼叫。
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -979,6 +979,6 @@ function main() {
   console.log('acceptance-ids：通過');
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   main();
 }

@@ -13,6 +13,7 @@
 //
 // 判定邏輯為純函式 evaluate，供模組單元測試呼叫；API 呼叫只在 run 中。
 // 紀錄格式採白名單（review-process.md 第 2 節）：任何一處不符即整則無效，不嘗試解讀。
+import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateAuthorSection, normalizeSessionId } from './check-pr-body.mjs';
@@ -330,7 +331,7 @@ export async function run({ argv = process.argv.slice(2), env = process.env, fet
   return { headSha, result, written: true };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   run().catch((err) => {
     console.error(`review-gate：${err.message}`);
     process.exit(err.exitCode ?? 1);

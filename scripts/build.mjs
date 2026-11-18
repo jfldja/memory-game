@@ -1,7 +1,7 @@
 // 建置：src/ → dist/，並以版本號覆寫 dist/js/version.js（spec.md 第 11 節，EQ-9）。
 // 只用 Node.js 內建模組。
 import { execFileSync } from 'node:child_process';
-import { cpSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -70,6 +70,6 @@ function main() {
   console.log(`build: dist/ 已建立，版本 ${version}`);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   main();
 }
