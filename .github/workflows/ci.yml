@@ -97,5 +97,11 @@ jobs:
           CI: 'true'
           ACCEPTANCE_RESULTS_FILE: acceptance-results/e2e-realtime.jsonl
         run: npx playwright test --project="$BROWSER-realtime" --workers=1
+      # 探測 PR C 診斷（不合併）：重現 AC-EQ-9 第一個測試的步驟，並印出失敗現場
+      - name: probe diagnostics (macOS)
+        if: always() && runner.os == 'macOS'
+        run: |
+          node probe/diag.mjs || true
+          find test-results -name 'error-context.md' -print -exec cat {} ';' 2>/dev/null || true
       - name: acceptance results (e2e layer)
         run: node scripts/check-acceptance-results.mjs --layer e2e acceptance-results/e2e.jsonl acceptance-results/e2e-realtime.jsonl
