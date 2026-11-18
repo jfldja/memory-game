@@ -54,11 +54,15 @@ jobs:
 
   e2e:
     name: e2e (${{ matrix.browser }})
-    runs-on: ubuntu-latest
+    # 探測 PR C（不合併）：WebKit 改在 macOS 執行，量測排隊、安裝與測試結果（DQ-15 選項 (g)）
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
         browser: [chromium, firefox, webkit]
+        include:
+          - browser: webkit
+            os: macos-15
     env:
       BROWSER: ${{ matrix.browser }}
       # 建置與測試讀同一個值（spec.md 第 11 節）。PR 用 head commit，不用 GITHUB_SHA
@@ -73,7 +77,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps "$BROWSER"
+      - name: install browser
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            npx playwright install "$BROWSER"
+          else
+            npx playwright install --with-deps "$BROWSER"
+          fi
       - name: build
         run: node scripts/build.mjs
       # 兩次執行各自以自訂 reporter 輸出結果檔（playwright.config.mjs；spec.md 12.2.1）
