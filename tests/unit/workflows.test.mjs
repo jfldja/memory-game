@@ -122,6 +122,126 @@ describe('工作流程', () => {
     for (const r of runs) assert.doesNotMatch(r, /--grep|--grep-invert|--last-failed|--only-changed|--pass-with-no-tests/);
   });
 
+  // ───── v0.7（DQ-15 採 (g′)＋(c)＋(a)＋(e)；spec.md 12.7.4、12.7.5；module-test-standards.md M13）─────
+
+  /** job 區塊中，job 層級（4 格縮排）的某個鍵的值；沒有時為 null。 */
+  function jobKey(block, key) {
+    const m = block.match(new RegExp(`^    ${key}:[ \\t]*(.*)$`, 'm'));
+    return m ? m[1].trim() : null;
+  }
+  /** job 區塊中的步驟（以 6 格縮排的 `- ` 開頭切分），各自的原文。 */
+  function stepsOf(block) {
+    const lines = block.split('\n');
+    const steps = [];
+    let cur = null;
+    for (const l of lines) {
+      if (/^      - /.test(l)) {
+        cur = [l];
+        steps.push(cur);
+      } else if (cur && (/^        /.test(l) || l.trim() === '')) {
+        cur.push(l);
+      } else if (cur && /^ {0,6}\S/.test(l)) {
+        cur = null;
+      }
+    }
+    return steps.map((s) => s.join('\n').replace(/\n+$/, ''));
+  }
+  const ciJobs = ['unit', 'acceptance-ids', 'e2e'];
+
+  test('ci.yml v0.7：只有 unit、acceptance-ids、e2e 三個 job，job 名稱（必要檢查名稱）不變', () => {
+    const t = read('ci.yml');
+    const jobsText = t.slice(t.search(/^jobs:$/m));
+    const jobs = [...jobsText.matchAll(/^  ([\w-]+):[ \t]*$/gm)].map((m) => m[1]);
+    assert.deepEqual(jobs, ciJobs);
+    assert.equal(jobKey(jobBlock(t, 'unit'), 'name'), 'unit');
+    assert.equal(jobKey(jobBlock(t, 'acceptance-ids'), 'name'), 'acceptance-ids');
+    assert.equal(jobKey(jobBlock(t, 'e2e'), 'name'), 'e2e (${{ matrix.browser }})');
+  });
+
+  test('ci.yml v0.7：每個 job 的 timeout-minutes 為規定值（unit、acceptance-ids 10，e2e 30）', () => {
+    const t = read('ci.yml');
+    assert.equal(jobKey(jobBlock(t, 'unit'), 'timeout-minutes'), '10');
+    assert.equal(jobKey(jobBlock(t, 'acceptance-ids'), 'timeout-minutes'), '10');
+    assert.equal(jobKey(jobBlock(t, 'e2e'), 'timeout-minutes'), '30');
+  });
+
+  test('ci.yml v0.7：runs-on 為規定值（unit、acceptance-ids 為 ubuntu-26.04，e2e 為 macos-15），e2e 矩陣仍為三引擎且沒有 include', () => {
+    const t = read('ci.yml');
+    assert.equal(jobKey(jobBlock(t, 'unit'), 'runs-on'), 'ubuntu-26.04');
+    assert.equal(jobKey(jobBlock(t, 'acceptance-ids'), 'runs-on'), 'ubuntu-26.04');
+    const e2e = jobBlock(t, 'e2e');
+    assert.equal(jobKey(e2e, 'runs-on'), 'macos-15');
+    assert.match(e2e, /^      matrix:\n        browser: \[chromium, firefox, webkit\]\n/m);
+    assert.doesNotMatch(e2e, /^\s*(include|exclude):/m);
+    // runs-on 只出現在三個 job 層級
+    assert.equal((t.match(/^\s*runs-on:/gm) ?? []).length, 3);
+  });
+
+  test('ci.yml v0.7：任何 job 與 step 都沒有 continue-on-error', () => {
+    assert.doesNotMatch(read('ci.yml'), /continue-on-error/);
+  });
+
+  test('ci.yml v0.7：沒有 --with-deps；e2e 的 install step 逐字為 npx playwright install "$BROWSER"，step 逾時 10 分鐘，沒有條件', () => {
+    const t = read('ci.yml');
+    assert.doesNotMatch(t, /--with-deps/);
+    const steps = stepsOf(jobBlock(t, 'e2e'));
+    const installs = steps.filter((s) => /playwright install/.test(s));
+    assert.equal(installs.length, 1);
+    assert.equal(runBlocks(installs[0]).map((b) => b.trim()).join('\n'), 'npx playwright install "$BROWSER"');
+    assert.match(installs[0], /^\s*(?:-\s+)?timeout-minutes: 10$/m);
+    assert.doesNotMatch(installs[0], /^\s*(?:-\s+)?if:/m);
+    // 其他 job 沒有安裝瀏覽器
+    for (const j of ['unit', 'acceptance-ids']) assert.doesNotMatch(jobBlock(t, j), /playwright install/);
+  });
+
+  test('ci.yml v0.7：e2e 的快取 step 在 npm ci 之後、install 之前；action、路徑、鍵為規定值，沒有 restore-keys', () => {
+    const t = read('ci.yml');
+    const steps = stepsOf(jobBlock(t, 'e2e'));
+    const idxCache = steps.findIndex((s) => /uses: actions\/cache@/.test(s));
+    const idxNpm = steps.findIndex((s) => /run: npm ci$/m.test(s));
+    const idxInstall = steps.findIndex((s) => /playwright install/.test(s));
+    assert.ok(idxNpm >= 0 && idxCache >= 0 && idxInstall >= 0);
+    assert.ok(idxNpm < idxCache && idxCache < idxInstall, `順序：npm ci ${idxNpm}、cache ${idxCache}、install ${idxInstall}`);
+    const cache = steps[idxCache];
+    assert.match(cache, /^      - uses: actions\/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6\.1\.0$/m);
+    const withBlock = cache.match(/^        with:\n((?:          .*\n?)+)/m);
+    assert.ok(withBlock, '快取 step 應有 with:');
+    const inputs = withBlock[1].trimEnd().split('\n').map((l) => l.trim());
+    assert.deepEqual(inputs, [
+      'path: ~/Library/Caches/ms-playwright',
+      "key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}",
+    ]);
+    assert.doesNotMatch(t, /restore-keys/);
+    // 整個 ci.yml 只有這一個 actions/cache；其他 job 沒有快取 step
+    assert.equal((t.match(/uses: actions\/cache@/g) ?? []).length, 1);
+    for (const j of ['unit', 'acceptance-ids']) assert.doesNotMatch(jobBlock(t, j), /actions\/cache|^\s*cache:/m);
+  });
+
+  test('ci.yml v0.7：沒有任何 step 以 cache-hit 為條件，ci.yml 沒有 if:', () => {
+    const t = read('ci.yml');
+    assert.doesNotMatch(t, /cache-hit/);
+    assert.doesNotMatch(t, /^\s*(?:-\s+)?if:/m);
+  });
+
+  test('ci.yml v0.7：unit job 第一步逐字為模組單元測試的 glob（spec.md 12.7.5 同類風險第 1 點）', () => {
+    const steps = stepsOf(jobBlock(read('ci.yml'), 'unit'));
+    const runSteps = steps.filter((s) => runBlocks(s).length > 0);
+    assert.equal(runBlocks(runSteps[0])[0].trim(), "node --test 'tests/unit/**/*.test.mjs'");
+    assert.match(runSteps[0], /^      - name: unit tests\n        run: node --test 'tests\/unit\/\*\*\/\*\.test\.mjs'$/);
+  });
+
+  test('ci.yml v0.7：e2e 的 step 順序與內容（除新增的快取與 install 外）不變', () => {
+    const runs = runsOf(jobBlock(read('ci.yml'), 'e2e'));
+    assert.deepEqual(runs, [
+      'npm ci',
+      'npx playwright install "$BROWSER"',
+      'node scripts/build.mjs',
+      'npx playwright test --project="$BROWSER"',
+      'npx playwright test --project="$BROWSER-realtime" --workers=1',
+      'node scripts/check-acceptance-results.mjs --layer e2e acceptance-results/e2e.jsonl acceptance-results/e2e-realtime.jsonl',
+    ]);
+  });
+
   test('playwright.config.mjs：自訂 reporter、一般 project 只執行 *.spec.mjs、CI 禁止 .only、不重試（spec.md 12.3）', () => {
     const c = readFileSync(path.join(ROOT, 'playwright.config.mjs'), 'utf8');
     assert.match(c, /reporter: \[\['list'\], \['\.\/scripts\/acceptance-reporter-pw\.mjs', \{ outputFile: RESULTS_FILE \}\]\]/);

@@ -19,7 +19,7 @@
 // 另外：Playwright 回報的全域錯誤（例：測試檔載入失敗）一律失敗。
 //
 // 判定邏輯為純函式 evaluateResults，供模組單元測試呼叫；讀檔與結束程式只在 main 中。
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runCheck, containsId, ACCEPTANCE_DIR } from './check-acceptance-ids.mjs';
@@ -255,6 +255,6 @@ function main() {
   console.log('acceptance-results：通過');
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   main();
 }

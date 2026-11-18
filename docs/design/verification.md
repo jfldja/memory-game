@@ -2,8 +2,8 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.6.1（2.7 補 node:test 子測試的實測）；0.6（新增 2.7：PR-1b 合併後的平台狀態與 GFM 渲染實測，DQ-14 的依據）；0.5（`review-record` 的必要檢查改在 PR-1b 設定；PR-1 合併後的平台狀態紀錄） |
-| 日期 | 2026-11-10（查證日期 2026-11-04；第 2.6 節為 2026-11-09、第 2.7 節為 2026-11-10 以 API 讀取與本機實測） |
+| 版本 | 0.7（新增 2.8：CI 外部相依的逾時與穩定性，DQ-15 的依據；含選項 (g) 的 macOS 執行器查證與 PR #6 實測、D-macOS 的重現、(g′)＋(c) 的 PR #7 實測與快取安全性查證；v0.7 已簽核（2026-11-18 16:20（Asia/Taipei）；DQ-15 採 (g′)＋(c)＋(a)＋(e)））；0.6.1（2.7 補 node:test 子測試的實測）；0.6（新增 2.7：PR-1b 合併後的平台狀態與 GFM 渲染實測，DQ-14 的依據）；0.5（`review-record` 的必要檢查改在 PR-1b 設定；PR-1 合併後的平台狀態紀錄） |
+| 日期 | 2026-11-18（查證日期 2026-11-04；第 2.6 節為 2026-11-09、第 2.7 節為 2026-11-10 以 API 讀取與本機實測；第 2.8 節為 2026-11-18 讀取官方文件原始檔與 API） |
 | 撰寫 | 設計 agent |
 | 依據 | docs/requirements.md v1.1（Q4、Q6 與查證相關內容與 v1.0 相同）第 12 節 Q4、Q6；第 8.2 節 A-1、A-2；第 8.4 節 |
 | 查證方式 | 2026-11-04 以 WebSearch／WebFetch 讀取 docs.github.com 官方頁面；工具授權讀取本機安裝檔的 LICENSE。部分官方頁面因本工作階段的網路允許清單無法擷取，於該列標明「未查證」 |
@@ -166,12 +166,137 @@
 | node:test 的子測試與並行（v0.6.1） | Node.js 22.23.4，`node --test --test-reporter=tap` 執行一個含四種寫法的檔案 | **實測**：在測試本體內呼叫最上層 `test()`、`it()` 與 `t.test()` 都建立子測試（TAP 中為巢狀 `# Subtest`）；`describe(…, { concurrency: 2 })` 被接受並執行 | spec.md 12.2 第 9e 點 |
 | Unicode 性質（JavaScript） | Node.js 22.23.4，`/\p{Default_Ignorable_Code_Point}/u` 等 | U+3164、U+FFA0、U+115F、U+1160、U+034F、U+FE00、U+FE0F、U+E0100、U+180B 屬於 Default_Ignorable_Code_Point 而不屬於 Cf；U+034F、U+FE00、U+FE0F、U+E0100、U+180B 屬於 M；U+2800 兩者皆否；NFKC 把 U+3164、U+FFA0 轉為 U+1160（仍為字母）、U+00A0 轉為空格 | DQ-14 (b) 的 X2～X4 |
 
+### 2.8 CI 外部相依的逾時與穩定性（v0.7，2026-11-18；DQ-15 的依據）
+
+**讀取方式：** 本工作階段無法連線 docs.github.com、playwright.dev、mcr.microsoft.com（連線失敗或不在網路允許清單內）。GitHub 文件改讀其官方原始檔版本庫 `github/docs` 的 `main`（docs.github.com 由此產生）；Playwright 文件改讀 `microsoft/playwright` 版本庫 **v1.63.0 標籤**的 `docs/src/`（playwright.dev 由此產生，版本與本專案的 `@playwright/test` 1.63.0 相同）。下表「來源」先列公開網址，再列實際讀取的原始檔。標示「已查證」者為讀到原文；「實測」為以 API 讀取本版本庫的執行紀錄與日誌；「未查證」為沒有讀到原文或無法量測，結論為推定。
+
+**(1) GitHub Actions 的逾時、失敗與重跑**
+
+| 問題 | 結論 | 官方原文（節錄） | 來源 | 查證 |
+|---|---|---|---|---|
+| job 預設逾時 | 未設定 `timeout-minutes` 時為 360 分鐘，到時由 GitHub 自動取消 | “The maximum number of minutes to let a job run before GitHub automatically cancels it. Default: 360” | https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idtimeout-minutes ；原始檔 https://raw.githubusercontent.com/github/docs/main/content/actions/reference/workflows-and-actions/workflow-syntax.md | 已查證 |
+| step 逾時 | 可對單一 step 設定，到時終止該 step 的程序；上限 360；必須是正整數 | “The maximum number of minutes to run the step before killing the process. Maximum: 360 for both GitHub-hosted and self-hosted runners.” “Fractional values are not supported. `timeout-minutes` must be a positive integer.” | 同上 `#jobsjob_idstepstimeout-minutes` | 已查證 |
+| 不設逾時時的實際上限 | GitHub 託管執行器每個 job 最多 6 小時，到時終止並判為失敗 | “Each job in a workflow can run for up to 6 hours of execution time. If a job reaches this limit, the job is terminated and fails.” | https://docs.github.com/en/actions/reference/limits ；原始檔 https://raw.githubusercontent.com/github/docs/main/content/actions/reference/limits.md | 已查證 |
+| `continue-on-error` | step 設為 true 時，該 step 失敗不使 job 失敗 | “Prevents a job from failing when a step fails. Set to `true` to allow a job to pass when this step fails.” | 同 workflow-syntax `#jobsjob_idstepscontinue-on-error` | 已查證 |
+| 必要檢查需要的狀態 | 必要檢查必須為 successful、skipped 或 neutral 才能合併；因此逾時、取消、失敗都會擋下合併，進行中（pending）也會 | “Required status checks must have a `successful`, `skipped`, or `neutral` status before collaborators can make changes to a protected branch.” | https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches ；原始檔同路徑 `.md` | 已查證 |
+| check run 的結論值 | check run 完成時的結論包含 `timed_out`、`cancelled`、`failure` 等 | 結論清單含 “`timed_out`” | https://docs.github.com/en/rest/guides/using-the-rest-api-to-interact-with-checks ；原始檔 https://raw.githubusercontent.com/github/docs/main/content/rest/guides/using-the-rest-api-to-interact-with-checks.md | 已查證 |
+| job 因 `timeout-minutes` 中止時，job 與必要檢查的結論是哪一個值 | 未讀到原文。不論是 `cancelled`、`timed_out` 或 `failure`，都不屬於上列三種可合併的狀態，所以都擋下合併（此點已查證）；確切的值與「重跑失敗的 job」是否包含它，在 DQ-15 決定後的 PR 實測 | — | — | **未查證** |
+| 重跑 | 可在首次執行後 30 天內重跑整個執行、全部失敗的 job 或指定的 job；最多 50 次；重跑使用原事件的 `GITHUB_SHA`，所以不產生新 commit | “You can re-run a workflow run, all failed jobs in a workflow run, or specific jobs in a workflow run up to 30 days after its initial run.” “A workflow run can be re-run a maximum of 50 times.” “The workflow will also use the same `GITHUB_SHA` (commit SHA) and `GITHUB_REF` (git ref) of the original event” | https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs ；原始檔同路徑 `.md` | 已查證 |
+
+**(2) 執行器的雲端與映像**
+
+| 問題 | 結論 | 官方原文（節錄） | 來源 | 查證 |
+|---|---|---|---|---|
+| 標準 Linux 執行器跑在哪個雲端 | 標準 2、4 核 Linux 執行器使用多雲運算池，job 會被自動排到 AWS 或 Azure；GitHub Free 自動使用，沒有選擇雲端的設定 | “These jobs can run on either Amazon Web Services (AWS) or Microsoft Azure.” “Jobs are automatically scheduled across available cloud providers.” “Eligible runners on GitHub Free, GitHub Pro, and GitHub Team automatically use multi-cloud compute.” | https://docs.github.com/en/actions/concepts/runners/github-hosted-runners#cloud-hosts-used-by-github-hosted-runners ；原始檔 https://raw.githubusercontent.com/github/docs/main/content/actions/concepts/runners/github-hosted-runners.md | 已查證 |
+| 可用的 Ubuntu 標籤 | `ubuntu-latest`、`ubuntu-24.04`、`ubuntu-22.04`、`ubuntu-26.04`（x64）；文件與 runner-images 首頁寫 `ubuntu-latest` 對應 Ubuntu 24.04 | runner-images 表格：“Ubuntu 24.04 … `ubuntu-latest` or `ubuntu-24.04`”、“Ubuntu 26.04 … `ubuntu-26.04`” | https://docs.github.com/en/actions/reference/runners/github-hosted-runners ；https://github.com/actions/runner-images （README） | 已查證 |
+| `-latest` 標籤的移轉 | 移轉是漸進的，約 1～2 個月；期間使用 `-latest` 的工作流程可能看到作業系統版本改變；要避免時指定版本 | “The `-latest` migration process is gradual and happens over 1-2 months … any workflow using the `-latest` label, may see changes in the OS version … To avoid unwanted migration, users can specify a specific OS version in the yaml file” | https://github.com/actions/runner-images （README「Latest Migration Process」） | 已查證 |
+| 本專案的 `ubuntu-latest` 實際是哪個映像 | 自 PR-1（2026-11-09）起，本版本庫所有讀到的 e2e 日誌都是 `Image: ubuntu-26.04`，與上列文件「ubuntu-latest＝24.04」不同，表示本版本庫已落在移轉的 26.04 一側 | 日誌開頭 “Image: ubuntu-26.04” | 執行 42588282323、42993416924、44249317277、44251453907 的 e2e job 日誌（`GET /repos/{owner}/{repo}/actions/jobs/{id}/logs`） | 實測 |
+| 支援的映像數量 | 最多同時支援 2 個 GA 映像與 1 個 beta；新版 GA 後開始淘汰最舊的標籤。固定版本的標籤日後會被淘汰，需要再改 | “We support (at maximum) 2 GA images and 1 beta image at a time.” | 同上 | 已查證 |
+
+**(3) 快取**
+
+| 問題 | 結論 | 官方原文（節錄） | 來源 | 查證 |
+|---|---|---|---|---|
+| 容量與淘汰 | 每個版本庫預設 10 GB；超過 7 天未被存取的快取會被移除；超過 10 GB 的用量計費（C-1：不得超過） | “GitHub will remove any cache entries that have not been accessed in over 7 days. … By default, the limit is 10 GB per repository … Any usage beyond 10 GB is billed to your account.” | https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#usage-limits-and-eviction-policy ；原始檔同路徑 `.md` | 已查證 |
+| PR 建立的快取能給誰用 | PR 執行建立的快取限定在該 PR 的合併 ref，只能由該 PR 的重跑使用；PR 可讀取預設分支與基底分支的快取。所以要讓 PR 用到快取，必須由 `push` 到 main 的執行建立 | “When a cache is created by a workflow run triggered on a pull request, the cache is created for the merge ref (`refs/pull/.../merge`). … It cannot be restored by the base branch or other pull requests targeting that base branch.” “Workflow runs can restore caches created in either the current branch or the default branch” | 同上 `#restrictions-for-accessing-a-cache` | 已查證 |
+| Playwright 是否建議快取瀏覽器 | 不建議：還原快取的時間與下載相當；Linux 的作業系統相依套件（`--with-deps` 安裝的 apt 套件）**無法快取** | “Caching browser binaries is not recommended, since the amount of time it takes to restore the cache is comparable to the time it takes to download the binaries. Especially under Linux, operating system dependencies need to be installed, which are not cacheable.” | https://playwright.dev/docs/ci#caching-browsers ；原始檔 https://raw.githubusercontent.com/microsoft/playwright/v1.63.0/docs/src/ci.md | 已查證 |
+| 本專案目前的快取 | e2e job 已以 `actions/setup-node` 的 `cache: npm` 快取 npm 下載（ci.yml 第 71～74 行）；瀏覽器與 apt 套件沒有快取 | — | `.github/workflows/ci.yml`（main 79ce6b1） | 實測（讀檔） |
+| 自行快取 apt 的 `.deb` 檔是否可行 | 技術上可把下載的套件檔放進 `actions/cache`，但需要 root 權限搬移、鍵值須含映像版本（映像每週更新）；未讀到 GitHub 或 Playwright 對此的官方做法，也未實測 | — | — | **未查證** |
+
+**(4) 容器 job 與 Playwright 官方映像**
+
+| 問題 | 結論 | 官方原文（節錄） | 來源 | 查證 |
+|---|---|---|---|---|
+| 容器 job 的語法 | `jobs.<job_id>.container`（`image`、`env`、`ports`、`volumes`、`options`、`credentials`）；設定後，該 job 中沒有自行指定容器的 step 都在此容器內執行；只指定映像時可省略 `image` 鍵 | “Use `jobs.<job_id>.container` to create a container to run any steps in a job that don't already specify a container.” | https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idcontainer ；原始檔 https://raw.githubusercontent.com/github/docs/main/data/reusables/actions/jobs/section-running-jobs-in-a-container.md | 已查證 |
+| 容器 job 的限制 | GitHub 託管執行器必須是 Ubuntu；容器內 `run` 的預設 shell 是 `sh` 而不是 `bash`；`options` 不支援 `--network` 與 `--entrypoint` | “If you are using GitHub-hosted runners, you must use an Ubuntu runner.” “The default shell for `run` steps inside a container is `sh` instead of `bash`.” “The `--network` and `--entrypoint` options are not supported.” | 原始檔 `data/reusables/actions/docker-container-os-support.md`、`…/section-running-jobs-in-a-container.md`、`…/section-running-jobs-in-a-container-options.md`（同上目錄） | 已查證 |
+| Playwright 的 GitHub Actions 容器範例 | `runs-on: ubuntu-latest`；`container: { image: mcr.microsoft.com/playwright:v<版本>-noble, options: --user 1001 }`；之後照常 `actions/checkout`、`actions/setup-node`、`npm ci`、`npx playwright test`，不需 `playwright install` | 範例 YAML（`image: mcr.microsoft.com/playwright:v%%VERSION%%-noble`、`options: --user 1001`） | https://playwright.dev/docs/ci#via-containers ；原始檔 https://raw.githubusercontent.com/microsoft/playwright/v1.63.0/docs/src/ci.md | 已查證 |
+| 映像標籤 | `:v<版本>`、`:v<版本>-noble`（Ubuntu 24.04）、`:v<版本>-jammy`（22.04）、`:v<版本>-resolute`（26.04）；建議固定版本；映像中的 Playwright 版本與專案不一致時找不到瀏覽器 | “It is recommended to always pin your Docker image to a specific version if possible. If the Playwright version in your Docker image does not match the version in your project/tests, Playwright will be unable to locate browser executables.” | https://playwright.dev/docs/docker#image-tags ；原始檔 https://raw.githubusercontent.com/microsoft/playwright/v1.63.0/docs/src/docker.md ；發布腳本 https://raw.githubusercontent.com/microsoft/playwright/v1.63.0/utils/docker/publish_docker.sh | 已查證（文件與發布腳本） |
+| `v1.63.0-noble` 等標籤是否確實存在於 MCR | 以 v1.63.0 的發布腳本推定會發布；MCR 的標籤清單（`https://mcr.microsoft.com/v2/playwright/tags/list`）本工作階段無法連線 | — | — | **未查證** |
+| 映像內容 | 以 `ubuntu:noble` 為基底；內含 Node.js 24、三種瀏覽器與其系統相依套件（`PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`）、使用者 `pwuser`；不含 Playwright 套件本身（由專案 `npm ci` 安裝） | Dockerfile：“FROM … ubuntu:noble”、“ARG NODE_VERSION=24”、“ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright”、`playwright-core install-deps` 與三個瀏覽器的 `install`；docker.md：“The Playwright package/dependency is not included in the image” | https://raw.githubusercontent.com/microsoft/playwright/v1.63.0/utils/docker/Dockerfile.noble ；docker.md 同上 | 已查證 |
+| 建議的容器參數 | 建議 `--init`（避免 PID 1 的特殊處理造成殭屍程序）；使用 Chromium 時建議 `--ipc=host`（否則可能記憶體不足而當掉）；預設以 root 執行會停用 Chromium 沙箱 | “Using `--init` Docker flag is recommended …” “Using `--ipc=host` is recommended when using Chromium.” | docker.md 同上「Recommended Docker Configuration」 | 已查證 |
+| 映像大小與在執行器上的拉取時間 | 未讀到官方數字；MCR 無法連線；本版本庫沒有容器 job 的執行紀錄 | — | — | **未查證**（須在探測或 PR 中量測） |
+| 執行器的使用者 uid 是否為 1001（`--user 1001` 與工作目錄權限） | 範例使用 `--user 1001`，未讀到「託管執行器的 runner 使用者 uid 為 1001」的原文 | — | — | **未查證** |
+
+**(5) 本版本庫的執行紀錄（2026-11-18 以 API 讀取 job 與日誌；實測）**
+
+| 執行（run id） | job | 雲端／區域（日誌） | 映像版本 | apt 鏡像 | `--with-deps` 的套件 | 下載 | install step 時間 |
+|---|---|---|---|---|---|---|---|
+| 42588282323（2026-11-09，PR-1 合併後 push） | e2e (webkit) | Azure | ubuntu-26.04 | azure.archive.ubuntu.com | 185 個新安裝，139 MB | 10 s（14.5 MB/s） | — |
+| 42993416924（2026-11-11，PR-1c 合併後 push） | e2e (webkit) | Azure | ubuntu-26.04 20261101.186.1 | azure.archive.ubuntu.com | 185 個，139 MB | 18 s（7.7 MB/s） | 49 s |
+| 同上 | e2e (firefox) | Azure | 同上 | 同上 | 39 個，54.4 MB | 2 s | 18 s |
+| 44249317277（2026-11-18 06:10Z，探測 PR B 前一個 head） | e2e (webkit) | Azure | ubuntu-26.04 20261111.196.1 | azure.archive.ubuntu.com | 185 個，139 MB | 55 s（2.5 MB/s） | 79 s |
+| 44251453907 第 1 次（2026-11-18 06:27Z，head 9cd3381） | e2e (webkit) | **AWS us-west-2** | ubuntu-26.04 **20261111.82.6** | **us-east-2.ec2.archive.ubuntu.com** | 185 個（另升級 1 個），139 MB | 06:27:58 開始，至 06:38:23 只取得第 56 個套件；libavcodec62（10.2 MB）06:35:38→06:38:12 約 2.5 分鐘（約 66 KB/s） | 由統籌 agent 於 06:38:37 取消（job 結論 `cancelled`） |
+| 同上 | e2e (chromium)、e2e (firefox) | Azure | 20261111.196.1 | azure.archive.ubuntu.com | chromium 9 個 21.9 MB；firefox 39 個 54.4 MB | 1 s；2 s | 18 s；13 s |
+| 44251453907 第 2 次（06:38:52Z 起） | e2e (webkit) | 進行中，日誌未能讀取 | — | — | — | install step 06:39:09 開始，06:48 仍未完成 | 進行中 |
+| 44258209548（2026-11-18 07:21Z，PR #6 探測 (g) 第 1 次，head e522f9e） | e2e (firefox) | **AWS us-west-2** | ubuntu-26.04 | （EC2 鏡像，同上） | 39 個，54.4 MB | **13 min 4 s（69.4 kB/s）** | — |
+| 同上 | e2e (webkit) | **MacCloud**（westus） | macos-15-arm64 | 不使用 apt | `npx playwright install webkit`（不加 `--with-deps`） | — | 約 10 s（統籌 agent 紀錄） |
+| PR #6 第 3～5 次（head 81376c4，run 44260684825 的 3 個 attempt） | e2e (webkit) | macOS | macos-15-arm64 20261104.0514.1 | — | 同上 | — | 約 11 s；job 33～39 s；排隊 2～3 s（統籌 agent 紀錄，PR #6 comment 6972345639） |
+
+**由紀錄得到的推定（未證明）：** v0.7 補充：PR #6 第 1 次的 Firefox 同樣在 AWS（設計 agent 以日誌確認：`Cloud: AWS`、`Region: us-west-2`、“Fetched 54.4 MB in 13min 4s (69.4 kB/s)”），所以慢的鏡像影響所有留在 Ubuntu 的 job，不只 WebKit。以下為初次記錄時的推定：卡住的那一次是唯一一筆在 AWS 主機、使用 EC2 區域鏡像的紀錄；其餘 Azure 主機使用 Azure 鏡像，速度 2.5～14.5 MB/s。慢的來源推定為「多雲運算池排到 AWS 時的 Ubuntu 鏡像」，樣本只有一筆，第 2 次重跑的雲端未確認。WebKit 需要的套件（185 個、139 MB，含 ffmpeg 系列的影音函式庫）約為 Firefox 的 2.6 倍、Chromium 的 6 倍，同一個慢鏡像下最先超時。統籌 agent 轉述「2026-11-11 同一步驟 8 秒（17.7 MB/s）」與上表 42993416924 的 18 s（7.7 MB/s）不同，可能指不同的執行；不影響結論。
+
+**(6) macOS 執行器（選項 (g)；v0.7 新增）**
+
+| 問題 | 結論 | 官方原文（節錄） | 來源 | 查證 |
+|---|---|---|---|---|
+| 公開版本庫的標準執行器（含 macOS）是否免費 | 是 | “The use of standard GitHub-hosted runners is free: * In public repositories …” | https://docs.github.com/en/billing/concepts/product-billing/github-actions ；原始檔 https://raw.githubusercontent.com/github/docs/main/content/billing/concepts/product-billing/github-actions.md | 已查證（統籌 agent 查證，設計 agent 重讀原始檔確認） |
+| 公開版本庫的 macOS 標準執行器標籤與規格 | arm64（M1）3 核、7 GB 記憶體、14 GB SSD；標籤 `macos-latest`（目前對應 macOS 26 arm64）、`macos-15`、`macos-26`；另有 Intel 的 `macos-15-intel`、`macos-26-intel`。統籌 agent 轉述含 `macos-14`；設計 agent 讀到的現行表格**沒有** `macos-14`，runner-images README 記載 macOS 14 映像已於 2026-11-02 退役。本設計使用 `macos-15`，不受影響 | 表格列：“3 (M1) \| 7 GB \| 14 GB \| arm64 \| macos-latest, macos-15, macos-26 …”；README：“All macOS 14 images retired from GitHub Actions on November 2, 2026.” | https://docs.github.com/en/actions/reference/runners/github-hosted-runners ；原始檔 https://raw.githubusercontent.com/github/docs/main/data/reusables/actions/supported-github-runners.md ；https://github.com/actions/runner-images | 已查證 |
+| macOS 執行器在哪裡執行 | 在 GitHub 自己的 macOS 雲端，不在 Linux 的 AWS／Azure 多雲排程內；PR #6 的日誌為 `Cloud: MacCloud` | “macOS runners are hosted in GitHub's own macOS cloud.” | 原始檔 https://raw.githubusercontent.com/github/docs/main/content/actions/reference/runners/github-hosted-runners.md ；PR #6 run 44258209548 的日誌 | 已查證；實測 |
+| macOS 並行上限與排隊 | Free 方案標準執行器同時最多 20 個 job，其中 macOS 最多 5 個；需求高峰時 macOS job 可能較久才開始 | 表格列：“Standard GitHub-hosted runner \| Free \| 20 \| 5”；“During periods of high demand, jobs that run on macOS runners may take longer to start.” | https://docs.github.com/en/actions/reference/limits ；原始檔 https://raw.githubusercontent.com/github/docs/main/content/actions/reference/limits.md 、https://raw.githubusercontent.com/github/docs/main/data/reusables/actions/macos-runner-capacity.md | 已查證 |
+| Playwright 1.63.0 支援的 macOS 版本 | macOS 14（Sonoma）以上；`macos-15` 符合 | “macOS 14 (Sonoma) or later.” | https://raw.githubusercontent.com/microsoft/playwright/v1.63.0/docs/src/intro-js.md | 已查證 |
+| macOS 上是否需要系統相依套件 | 不需要額外設定 | “For Windows or macOS agents, no additional configuration is required, just install Playwright and run your tests.” | https://raw.githubusercontent.com/microsoft/playwright/v1.63.0/docs/src/ci.md | 已查證 |
+| WebKit 在 macOS 與 Linux 的差異 | 平台相關功能（例如媒體解碼）因作業系統而異；最接近 Safari 的是在 Mac 上執行 WebKit | “for the closest-to-Safari experience you should run WebKit on mac” | https://raw.githubusercontent.com/microsoft/playwright/v1.63.0/docs/src/browsers.md | 已查證 |
+| `--with-deps` 在 macOS 上的行為 | 未讀到原文；設計在 macOS 上不加 `--with-deps`（PR #6 的做法） | — | — | **未查證** |
+| macOS 排隊時間的長期分布 | PR #6 只有 5 次樣本（2～3 秒） | — | — | **未查證** |
+| macOS 上 NFR-3 版面與 NFR-6 計時 | 相關驗收到 PR-4 才轉實測；PR #6 只執行了 3 個已實測的測試（其餘為骨架） | — | — | **未查證** |
+| `timeout-minutes` 是否包含排隊時間 | 未讀到原文 | — | — | **未查證** |
+
+**(7) 直接執行判斷與符號連結（D-macOS；v0.7 新增，設計 agent 實測）**
+
+| 項目 | 方式 | 結果 | 查證 |
+|---|---|---|---|
+| 經符號連結執行時的 `process.argv[1]` 與 `import.meta.url` | Node.js 22.23.4，在暫存目錄建立 `real/` 與指向它的符號連結 `link/`，執行 `node link/m.mjs` | `process.argv[1]` 為 `…/link/m.mjs`，`import.meta.url` 為 `…/real/m.mjs`；`path.resolve(argv[1]) === fileURLToPath(url)` 為 **false**；`realpathSync` 兩邊比對為 true；`import.meta.main` 為 true | 實測 |
+| 以實際路徑、在符號連結目錄中以相對路徑、`--preserve-symlinks-main` 執行 | 同上 | 舊判斷與 realpath 比對皆為 true（`--preserve-symlinks-main` 下 `import.meta.url` 也是連結路徑） | 實測 |
+| 被另一個模組匯入時 | `import './m.mjs'` | realpath 比對為 false（不執行主程式），`import.meta.main` 為 false | 實測 |
+| `import.meta.main` 的可用版本 | Node.js 文件 | “added: v22.18.0”、“Stability: 1.0 - Early development” | 已查證：https://raw.githubusercontent.com/nodejs/node/v22.23.4/doc/api/esm.md |
+| `node --test` 的 glob 沒有對應任何檔案 | Node.js 22.23.4，`node --test 'nothing/**/*.test.mjs'` | 以 **0** 結束 | 實測 |
+| macOS 的 `os.tmpdir()` 經符號連結 | 統籌 agent 於 PR #6 的診斷步驟確認（`/var` → `/private/var`） | 經連結路徑執行 `build.mjs` 時沒有產生 `dist/` | 實測（統籌 agent） |
+
+**(8) 三種瀏覽器在 macOS 並快取（選項 (g′)＋(c)；v0.7 新增）**
+
+PR #7 實測（統籌 agent 紀錄 comment 6972670675；ci 執行 44262943300 attempt 1～3；設計 agent 另讀 attempt 1、3 的 6 個 e2e 日誌確認）：
+
+| 次 | 快取 | 結果 | 排隊 | 快取步驟 | 安裝 | job | 設計 agent 從日誌確認 |
+|---|---|---|---|---|---|---|---|
+| 1 | 未命中（建立） | chromium、firefox、webkit 皆 success | 2～3 s | 1 s | 4～12 s | 27～43 s | 三個 job 皆 `Cloud: MacCloud`；自 `https://cdn.playwright.dev/…` 下載瀏覽器（Chromium 另下載 headless shell，三者都下載 FFmpeg）到 `/Users/runner/Library/Caches/ms-playwright/`；最後「Cache saved with key: playwright-macOS-ARM64-<瀏覽器>-3819f208…」 |
+| 2 | 命中 | 皆 success | 2～3 s | 3～8 s | 1～2 s | 30～40 s | （未讀） |
+| 3 | 命中 | 皆 success | 2～3 s | 3～9 s | 1～2 s | 30～37 s | 「Cache restored from key: playwright-macOS-ARM64-…」；快取大小 Chromium 263,867,732 B、Firefox 104,416,176 B、WebKit 70,005,151 B；沒有「Downloading」；npm 快取 4,037,659 B |
+
+限制：3 次、同一時段；第 2、3 次的命中來自 PR #7 自己的範圍（第 1 次建立），**沒有驗證「新 PR 從 main 範圍的快取命中」**；版面與計時驗收在 PR-4 才轉實測。
+
+| 問題 | 結論 | 官方原文（節錄） | 來源 | 查證 |
+|---|---|---|---|---|
+| Playwright 在 macOS 的瀏覽器位置 | `~/Library/Caches/ms-playwright`（Linux 為 `~/.cache/ms-playwright`） | “`~/Library/Caches/ms-playwright` on macOS” | https://raw.githubusercontent.com/microsoft/playwright/v1.63.0/docs/src/browsers.md | 已查證 |
+| 快取未命中時的下載來源 | Microsoft 的 CDN；日誌中為 `cdn.playwright.dev` | “By default, Playwright downloads browsers from Microsoft's CDN.” | 同上；PR #7 日誌 | 已查證；實測 |
+| 誰能寫入 main（預設分支）範圍的快取 | 只有 `push`、`workflow_dispatch`、`repository_dispatch`、`delete`、`registry_package`、`page_build`、`schedule`；`pull_request_target`、`issue_comment`、`workflow_run` 等在預設分支執行的事件對該範圍唯讀；`pull_request` 建立的快取在合併 ref 範圍，不能寫入預設分支範圍 | “only these workflow triggers can create or overwrite caches in the default branch’s scope: * `push` …” “The `pull_request` event is not affected. Caches created by a `pull_request` run are already scoped to the merge ref (`refs/pull/.../merge`) and cannot be written to the default branch's scope.” | https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#cache-access-for-low-trust-workflow-triggers ；原始檔 https://raw.githubusercontent.com/github/docs/main/content/actions/reference/workflows-and-actions/dependency-caching.md | 已查證 |
+| 快取能否被改寫 | 不能修改既有快取，只能以新鍵建立；未命中時，job 成功才建立 | “You cannot change the contents of an existing cache. Instead, you can create a new cache with a new key.” “On a cache miss, the action automatically creates a new cache if the job completes successfully.” | 同上 | 已查證 |
+| 鍵的比對 | 先找完全相同的鍵，再找以該鍵為前綴的部分相符，最後才用 `restore-keys`；先在目前分支找，再到預設分支 | “First, it searches for an exact match to your provided `key`.” “If no exact match is found, it will search for partial matches of the `key`.” | 同上 | 已查證 |
+| 容量、淘汰、PR 快取的範圍 | 見 (3)：10 GB、7 天未存取即移除、PR 建立的快取只給該 PR 的重跑 | 見 (3) | 見 (3) | 已查證 |
+| `actions/cache` v6.1.0 的版本 | `git ls-remote --tags https://github.com/actions/cache`：`refs/tags/v6.1.0` 與 `refs/tags/v6` 都指向 `55cc8345863c7cc4c66a329aec7e433d2d1c52a9`（輕量標籤，沒有標籤自己的日期）。該 commit 為 2026-06-23T16:30:28-04:00 的「Merge pull request #1768 from jasongin/readonly-cache」；`package.json` 版本 6.1.0；`action.yml` 為 `using: 'node24'` | — | `git ls-remote`；以 `git fetch --depth=1` 取得該 commit 讀取 `package.json`、`action.yml` | 實測 |
+| v6.1.0 的發布日期 | GitHub Releases API 在本工作階段不可用（該版本庫的 API 存取未開放）；只知道 commit 日期為 2026-06-23 | — | — | **未查證** |
+| 是否符合本專案的固定版本規則 | 本專案規則為「第三方 action 以完整 commit SHA 固定」（`tests/unit/workflows.test.mjs`：`uses` 必須符合 `<owner>/<repo>@<40 位十六進位>`），並以註解標版本；`55cc834…` 為 40 位完整 SHA，符合。設計文件沒有「發布滿多久」的規則 | — | `tests/unit/workflows.test.mjs` 第 54～58 行（main 79ce6b1） | 實測（讀檔） |
+| Playwright 是否驗證快取中瀏覽器的完整性 | 未讀到原文 | — | — | **未查證** |
+| `npm ci` 在有 npm 快取時是否仍連線 registry；`setup-node` 是否需要下載 Node.js 本體 | 未讀到原文 | — | — | **未查證** |
+
+**未查證、須在 PR-1d（合併前）或探測 PR D（合併後）實測（DQ-15 已決定採 (g′)＋(c)＋(a)＋(e)）：** job 因 `timeout-minutes` 中止時的結論值與「重跑失敗的 job」是否涵蓋它（PR-1d 的暫時 commit）；`timeout-minutes` 是否包含排隊時間；新 PR 從 main 範圍的快取命中（探測 PR D）；macOS 排隊的長期分布；macOS 上 NFR-3、NFR-5、NFR-6（PR-4）；`actions/cache` v6.1.0 的發布日期、快取中瀏覽器的完整性驗證、`npm ci` 與 `setup-node` 的網路存取（不阻擋 PR-1d，列為殘餘風險）。未採用的選項 (b)、(d)、(g) 的未查證項目（apt 重試時沿用下載、MCR 映像與拉取時間、執行器 uid、`--with-deps` 在 macOS 上的行為）不再需要實測。
+
 ## 3. 結論摘要
 
 | 編號 | 結論 | 建議 |
 |---|---|---|
 | Q4 | 可關閉：工具免費、授權允許、不隨網站散布 | 關閉 |
 | Q6 | 可關閉：Actions 與 Pages 對公開版本庫免費；EQ-2 以傳統分支保護＋「Do not allow bypassing」達成；EQ-11 以 `issue_comment`／`pull_request_target` 觸發、commit status 回寫達成；EQ-12 與官方延遲上限相同、無餘裕 | 關閉。啟動例外已依 DQ-8 接受；EQ-12 的外部延遲處理已決定（DQ-9，2026-11-09；spec.md 12.5） |
+
+v0.7：DQ-15 的未查證項目見 2.8 末段。
 
 未查證、須在第一批變更實測的項目：`statuses: write` 權限鍵（v0.5：review-gate 尚未執行過，PR-1b 開啟時第一次實測）、rulesets 對管理員的預設行為（本設計不依賴）、瀏覽器與官方 action 的授權原文、「必要檢查只能選近期執行過的名稱」。
 
@@ -186,3 +311,7 @@
 | 0.5（第 3 輪審查修訂） | 2026-11-09 | 2.6 補斷言計數的實測（Playwright 自訂 reporter、node:test hook 與 diagnostic） | design-review.md 設計審查第 3 輪 M-1 |
 | 0.6 | 2026-11-10 | 新增 2.7：PR-1b 合併後的平台狀態（review-gate 執行紀錄、分支保護、`body_html`）與 GFM 渲染、Unicode 性質的實測；GFM 規格原文與 `POST /markdown` 未能讀取，標為未查證並以 cmark-gfm 實測 | spec.md v0.6 DQ-14、12.6「v0.6 的順序」 |
 | 0.6.1 | 2026-11-10 | 2.7 新增 node:test 子測試與並行的實測 | spec.md 12.2 第 9e 點 |
+| 0.7 | 2026-11-18 | 新增 2.8：GitHub Actions 的逾時、必要檢查狀態、重跑、多雲執行器、`-latest` 移轉、快取限制、容器 job 語法與 Playwright 官方映像（讀官方原始檔；docs.github.com、playwright.dev、MCR 無法連線）；本版本庫 e2e 執行紀錄的雲端、鏡像與下載時間；未查證項目 | spec.md v0.7 DQ-15（探測 PR B 的 `e2e (webkit)` 卡在 `--with-deps`） |
+| 0.7（選項 (g) 與 D-macOS） | 2026-11-18 | 2.8 (5) 補 PR #6 的紀錄（Firefox 在 AWS 上 13 分 4 秒、WebKit 在 MacCloud）；新增 (6) macOS 執行器（免費、標籤與規格、MacCloud、並行上限、Playwright 支援與 macOS 不需系統相依；`macos-14` 已不在表中）與 (7) 直接執行判斷與符號連結、`node --test` 無對應檔案時以 0 結束的實測；未查證項目補充 | 產品負責人 2026-11-18 15:20 指示實測 (g)；統籌 agent 的查證與 D-macOS 回報 |
+| 0.7（選項 (g′)＋(c)） | 2026-11-18 | 2.8 新增 (8)：PR #7 的實測（含設計 agent 讀日誌確認的快取大小與下載來源）、Playwright 在 macOS 的瀏覽器位置與下載來源、快取的寫入範圍（PR 不能寫入 main 範圍）、不可改寫、鍵的比對、`actions/cache` v6.1.0 的標籤與 commit、固定版本規則；未查證項目補充 | 產品負責人 2026-11-18 15:54、15:56 的指示；PR #7 量測紀錄 |
+| 0.7（簽核） | 2026-11-18 | 表頭記錄 v0.7 簽核；2.8 末段的未查證項目改為指定在 PR-1d 或探測 PR D 實測；查證內容未變更 | 產品負責人 2026-11-18 16:20（Asia/Taipei）的決定 |

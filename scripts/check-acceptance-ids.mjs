@@ -21,7 +21,7 @@
 //
 // 本檔必須只依賴 Node.js 內建模組（驗收測試會把本檔單獨複製到暫存版本庫執行）。
 // 判定邏輯全部是可匯出的純函式，供模組單元測試、AC-EQ-4 驗收測試與 check-acceptance-results 呼叫。
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -943,6 +943,20 @@ export function runCheck({
   };
 }
 
+/**
+ * spec.md 12.7.5 同類風險第 1 點（v0.7）：`tests/unit/` 下沒有任何 `*.test.mjs` 時失敗。
+ * `node --test` 的 glob 沒有對應任何檔案時以 0 結束，模組單元測試因此可能靜默「通過」。
+ * 與「驗收測試檔為 0」對稱；另開函式而不放進 runCheck，維持 runCheck 的既有語意
+ * （check-acceptance-results 與驗收測試在沒有 tests/unit/ 的暫存版本庫呼叫它）。
+ * @param {string[]} unitFiles runCheck 回傳的 unitFiles
+ * @param {string} [testsDir]
+ * @returns {string|null} 失敗訊息；沒有問題時為 null
+ */
+export function unitTestFilesIssue(unitFiles, testsDir = 'tests') {
+  if (unitFiles.length > 0) return null;
+  return `${path.posix.join(testsDir, UNIT_TEST_DIR)}/ 下沒有任何模組單元測試檔`;
+}
+
 function main() {
   const args = process.argv.slice(2);
   const noSkip = args.includes('--no-skip');
@@ -975,10 +989,12 @@ function main() {
       console.error(`acceptance-ids：--no-skip：${t.file}:${t.line}  ${JSON.stringify(t.name)} 被略過`);
     }
   }
-  if (!r.ok) process.exit(1);
+  const unitIssue = unitTestFilesIssue(r.unitFiles);
+  if (unitIssue) console.error(`acceptance-ids：${unitIssue}`);
+  if (!r.ok || unitIssue) process.exit(1);
   console.log('acceptance-ids：通過');
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   main();
 }
