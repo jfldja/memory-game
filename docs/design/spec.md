@@ -2,7 +2,7 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.7（新增 DQ-15：CI 外部相依的逾時與穩定性，12.7；12.1、第 14 節標示依 DQ-15 決定；v0.7 待簽核）；0.6.3（設計缺陷修正：review-gate 的欄位與表格偵測取 PR-1b 版與 PR-1c 版的聯集；第 13、14 節對應；不改決定）；0.6.2（簽核後釐清：12.6 PR #2 試算的預期、12.2 第 9d 點與 12.2.1 第 4 項寫明實作的加嚴；不改決定）；0.6.1（DQ-14 採 (b) 寫入正文；PR #3 審查第 3、4(b) 點併入 PR-1c：12.2 第 9d、9e 點、12.2.1 第 4 項）；0.6（PR-1b 合併後：新增 DQ-14（review-gate 仍可被繞過的寫法）、12.6 與第 14 節的順序改為 PR-1c 後只開一次探測 PR B）；0.5.1（簽核後釐清：12.2 第 9c 點的適用範圍、12.2.1 結果檔交接與 `evaluateResults` 簽名、新增 DQ-13）；0.5（PR-1 審查 N-1～N-6 與實作、測試 agent 回報的修正；新增 PR-1b；含設計審查第 3 輪修訂） |
+| 版本 | 0.7（新增 DQ-15：CI 外部相依的逾時與穩定性，12.7；選項 (g) WebKit 在 macOS（已實測）；缺陷 D-macOS 的修正規格 12.7.5；12.1、第 14 節標示依 DQ-15 決定；v0.7 待簽核）；0.6.3（設計缺陷修正：review-gate 的欄位與表格偵測取 PR-1b 版與 PR-1c 版的聯集；第 13、14 節對應；不改決定）；0.6.2（簽核後釐清：12.6 PR #2 試算的預期、12.2 第 9d 點與 12.2.1 第 4 項寫明實作的加嚴；不改決定）；0.6.1（DQ-14 採 (b) 寫入正文；PR #3 審查第 3、4(b) 點併入 PR-1c：12.2 第 9d、9e 點、12.2.1 第 4 項）；0.6（PR-1b 合併後：新增 DQ-14（review-gate 仍可被繞過的寫法）、12.6 與第 14 節的順序改為 PR-1c 後只開一次探測 PR B）；0.5.1（簽核後釐清：12.2 第 9c 點的適用範圍、12.2.1 結果檔交接與 `evaluateResults` 簽名、新增 DQ-13）；0.5（PR-1 審查 N-1～N-6 與實作、測試 agent 回報的修正；新增 PR-1b；含設計審查第 3 輪修訂） |
 | 日期 | 2026-11-18 |
 | 狀態 | v0.4 已簽核（2026-11-09 16:12）；v0.5 已簽核（2026-11-10 16:06，DQ-11、DQ-12 已決定）；v0.5.1 已確認（2026-11-10 16:47（Asia/Taipei））。DQ-13 已決定採 (b)（2026-11-10 16:47（Asia/Taipei））。v0.6 已簽核（2026-11-10 22:12（Asia/Taipei），DQ-14 採 (b)）；v0.6.1 依該次決定展開，不需另行簽核。**v0.7 待產品負責人簽核，DQ-15 待決定。** 簽核紀錄見 docs/design/README.md |
 | 撰寫 | 設計 agent |
@@ -645,7 +645,7 @@ export function onHidden(callback); // document.visibilitychange 且 document.vi
 **共同設定：**
 
 - **必要檢查名稱不變。** v0.5 在既有 job 內新增步驟，不新增或改名 job；分支保護的必要檢查清單（12.6 步驟 6a）不需變更。
-- `runs-on: ubuntu-latest`（標準執行器，免費；ci.yml 是否改為固定版本、各 job 與安裝 step 的 `timeout-minutes` **依 DQ-15 決定**，見 12.7；決定前維持現狀）；`actions/setup-node` 指定 Node.js 22；每個工作流程以 `permissions` 宣告最小權限。
+- `runs-on: ubuntu-latest`（標準執行器，免費；ci.yml 是否改為固定版本、WebKit 是否改在 macOS（選項 (g)）、各 job 與安裝 step 的 `timeout-minutes` **依 DQ-15 決定**，見 12.7；決定前維持現狀）；`actions/setup-node` 指定 Node.js 22；每個工作流程以 `permissions` 宣告最小權限。
 - **並行群組：**
   - ci.yml、pr-body.yml：`group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}`；PR 事件 `cancel-in-progress: true`（新 commit 取代舊執行），`push` 事件 `false`。
   - review-gate.yml：`group: review-gate-${{ github.event.pull_request.number || github.event.issue.number }}`、`cancel-in-progress: false`（序列化；每次執行都重新讀取最新狀態，最後完成的執行就是依最新狀態寫入的那次）。
@@ -836,6 +836,8 @@ jobs:
 
 2026-11-18 探測 PR B（PR #5）的 head 9cd3381，`e2e (webkit)` 卡在 `npx playwright install --with-deps webkit` 的 apt 系統套件下載（185 個套件、139 MB）：10 分鐘只下載約 56 個套件，統籌 agent 取消後重跑，第 2 次同樣卡在這一步。同一次執行的 `e2e (chromium)`、`e2e (firefox)` 在 30 秒內完成。日誌顯示卡住的那一次排在 **AWS 主機、使用 EC2 區域的 Ubuntu 鏡像**，其餘紀錄都在 Azure 主機、使用 Azure 鏡像（verification.md 2.8 (5)；樣本一筆，原因為推定）。GitHub Free 的標準 Linux 執行器自動使用多雲運算池，本專案無法選擇雲端（2.8 (2)，已查證）。
 
+**v0.7 補充（產品負責人 2026-11-18 15:20 指示實測選項 (g) 之後）：** 同日 PR #6（探測，不合併）第 1 次執行的 `e2e (firefox)` 也排在 AWS（us-west-2），54.4 MB 的套件下載 13 分 4 秒（69.4 kB/s）。所以慢的鏡像不只影響 WebKit：**留在 Ubuntu 的每個 e2e job 都受同一風險**，只是 WebKit 的套件最多（139 MB），最先、最久卡住。同一探測發現實作缺陷 D-macOS（12.7.5）。
+
 現行 ci.yml 沒有任何 `timeout-minutes`，job 預設 360 分鐘後才被取消（2.8 (1)，已查證）；這段期間 `e2e (webkit)` 為進行中，而必要檢查必須為 successful、skipped 或 neutral 才能合併，所以 PR 最多 6 小時無法合併。已有的唯一快取是 e2e job 的 `setup-node` `cache: npm`；瀏覽器與 apt 套件沒有快取。
 
 #### 12.7.2 對需求的影響
@@ -864,26 +866,68 @@ jobs:
 | **(d) Playwright 官方容器映像** | `e2e` job 加 `container: { image: mcr.microsoft.com/playwright:v1.63.0-noble, options: --user 1001 --init --ipc=host }`（標籤版本必須與 `package.json` 的 `@playwright/test` 1.63.0 相同）；`defaults.run.shell: bash`（容器內預設為 `sh`）；保留 `setup-node` 22（映像內為 Node.js 24，維持與 `unit` 相同版本）；刪除 `npx playwright install --with-deps` step；其餘步驟不變；`job` 的 `name` 不變。另在同一 PR 加一個檢查：映像標籤的版本等於 `package.json` 的版本，不一致即失敗（例：`acceptance-ids` job 中的一支小腳本，或 e2e job 的第一個 step） | 不再執行 apt 與瀏覽器下載；三種引擎的系統環境固定為映像內容，不受 `ubuntu-latest` 移轉與鏡像影響 | 映像本身從 MCR 拉取，**仍是外部服務**；映像大小與拉取時間未查證（MCR 無法連線、本版本庫沒有容器 job 的紀錄），每個 e2e job 每次都要拉取，可能比現在正常時的安裝還慢；執行器排程本身 | 中高：job 定義改變；環境從 Ubuntu 26.04 主機改為 24.04 容器，字型與系統函式庫不同，三種引擎的 e2e 都要在該 PR 重新通過；NFR-6 的 realtime 測試到 PR-4 才轉實測，容器對計時的影響要到 PR-4 才看得到；升級 Playwright 時映像標籤要同一 PR 一起改 | 名稱不變。R-14：刪除 install step 不是降低檢查（測試步驟、結果檢查與 `retries: 0` 都保留）；審查者確認標籤版本、版本一致檢查存在、容器參數不含 `--network`／`--entrypoint`（不支援） | MCR 中斷或變慢；`--user 1001` 與工作目錄權限（執行器 uid 未查證）；容器與主機的環境差異讓 UAT 實機與 CI 的差距改變（NFR-2 以實機為準，不受影響） |
 | **(e) 固定 `runs-on`** | ci.yml 三個 job 的 `runs-on: ubuntu-latest` 改為 `ubuntu-26.04`（本版本庫自 PR-1 起實際使用的映像，2.8 (2) 實測）。不建議改為 `ubuntu-24.04`：環境會改變，WebKit 需要的套件數未量測 | 避免 `ubuntu-latest` 的漸進移轉在 M3、M4 期間改變 CI 環境（官方文件仍寫 `ubuntu-latest`＝24.04，與實際不同，表示移轉進行中；2.8 (2)） | **不能選擇雲端或鏡像**（多雲排程與標籤無關，已查證），不解決本次的慢 | 低：3 行；26.04 日後被淘汰時要再改（最多同時 2 個 GA 映像） | 名稱不變。R-14：不影響檢查 | 與現在相同；只是少一個環境變動來源 |
 | **(f) 不修改，接受為外部風險** | 不改 ci.yml。卡住時由統籌 agent 或產品負責人手動取消並重跑（同 (a) 的處理程序，但沒有自動逾時） | 不需變更、不需審查 | 每次卡住都要有人發現；沒人發現時 PR 最多 6 小時無法合併，期間 agent 等待 | 無變更成本；每次發生的人工成本 | 不變 | 與現在相同 |
+| **(g) WebKit 改在 macOS 執行器（v0.7 新增，已實測）** | ci.yml `e2e`：matrix 維持 `browser: [chromium, firefox, webkit]`，以 `include` 為 webkit 加 `os: macos-15`；`runs-on: ${{ matrix.os \|\| '<Ubuntu 標籤>' }}`（採 (e) 時 `<Ubuntu 標籤>` 為 `ubuntu-26.04`，否則 `ubuntu-latest`）；install step 在 `RUNNER_OS` 為 `macOS` 時執行 `npx playwright install "$BROWSER"`（**不加 `--with-deps`**），其餘照舊 `--with-deps`；job `name` 不變。須與 D-macOS 的修正同一 PR（12.7.5），否則 AC-EQ-9 第 1 個測試在 macOS 失敗 | **WebKit 的系統套件下載整段消失**（macOS 不需 apt；Playwright：“For Windows or macOS agents, no additional configuration is required”）；macOS 執行器在 GitHub 自己的 macOS 雲端，不在 Linux 的多雲排程內（verification.md 2.8 (6)）。PR #6 實測 3／3 通過：排隊 2～3 秒、安裝約 11 秒、job 33～39 秒（PR #5 同日 Ubuntu／AWS 上 WebKit 安裝 18 分 49 秒）。WebKit 在 macOS 上較接近 Safari（官方文件），與需求風險表「iOS Safari 的誤觸」方向一致 | **Chromium、Firefox 留在 Ubuntu，仍受同一鏡像風險**（PR #6 第 1 次 Firefox 13 分鐘）；macOS 的排隊時間（免費方案同時最多 5 個 macOS job，高峰時可能較久才開始；只有 5 次樣本）；瀏覽器本體的下載仍依賴外部 CDN | 中：ci.yml 約 10 行；macOS 分鐘數在公開版本庫免費（已查證）；**連帶必須修正 D-macOS**（6 支腳本，含 review-gate，見 12.7.5）；macOS 上 NFR-3 版面與 NFR-6 計時要到 PR-4 轉實測才觀察得到 | 必要檢查名稱不變（`e2e (webkit)` 由 `name` 模板產生，PR #6 實測 7 項中 6 項 success、`review-record` 依設計未留紀錄）。R-14：WebKit 仍執行全部 e2e、realtime 與結果檢查，只是作業系統不同，不是降低檢查；審查者確認 macOS 分支只省略 `--with-deps`、沒有省略任何測試步驟，且 Linux 分支不變 | macOS 映像標籤日後淘汰（`macos-15` 固定；`macos-latest` 目前為 26）；macOS 容量不足時排隊；`--with-deps` 在 macOS 上的行為未查證（設計以不加避開）；macOS 與 Linux 的字型與計時差異到 PR-4 才看得到 |
 
-**組合：** (a) 與 (b)、(c)、(d)、(e) 都可並用；(d) 採用時 (b)、(c) 沒有對象（不再安裝）；(e) 與 (d) 並用時主機版本不影響容器內環境，但仍決定容器執行環境的主機。
+**組合：** (a) 與 (b)、(c)、(d)、(e)、(g) 都可並用；(d) 採用時 (b)、(c) 沒有對象（不再安裝）；(e) 與 (d) 並用時主機版本不影響容器內環境，但仍決定容器執行環境的主機。(g) 只處理 WebKit，(e) 與 (a) 仍作用於留在 Ubuntu 的 Chromium、Firefox 與 `unit`、`acceptance-ids`；(g) 與 (d) 可以分工（WebKit 在 macOS、其餘在容器），但 (d) 仍未量測。變體 (g′)：三種引擎都改在 macOS，可去掉全部 apt 相依，但未實測、每個 PR 佔用 3 個 macOS 並行額度（上限 5），不列為本次建議。
 
 #### 12.7.4 建議
 
-**建議 (a)＋(e)，不採 (b)、(c)，(d) 暫不採用。**
+**建議 (a)＋(e)＋(g)，不採 (b)、(c)；(d) 與 (g′) 暫不採用。**（v0.7 依產品負責人 2026-11-18 15:20 指示實測 (g) 後改寫；原建議為 (a)＋(e)。）
 
-1. (a) 直接處理本次的實際損失（PR 最多 6 小時卡住、需要人發現），成本最低、不改變任何測試環境，也不降低檢查；重跑不產生新 commit，不需重新審查。
-2. (e) 成本極低，讓 M3 剩下的 PR 與 M4 期間的 CI 環境不再隨 `ubuntu-latest` 移轉而變；選 26.04 是因為它就是目前所有 e2e 實際使用、已通過的環境。
-3. 不採 (b)：本次的慢是同一主機上的鏡像持續慢，同一 job 內重試沒有幫助，反而增加工作流程邏輯與最壞等待時間。不採 (c)：官方明寫 apt 相依套件無法快取，本次卡住的正是 apt；(c′) 的失效時機恰好是映像更新時。
-4. (d) 是唯一能去掉 apt 相依的做法，但它把相依換成 MCR 的映像拉取，拉取時間未查證，又在 PR-4 的版面（NFR-3）與計時（NFR-6）驗收轉實測前改變系統環境。建議：(a) 之後若同一類逾時在 M3 再發生 2 次以上（依 (a) 的處理程序紀錄，次數由測試報告彙整），由設計 agent 另開待決問題，附 (d) 在不合併的探測 PR 上量測的拉取時間與三引擎結果，再由產品負責人決定。
+1. **(g)**：本次兩度卡住的是 WebKit 的 139 MB 系統套件；(g) 讓這段下載整個消失，已在 PR #6 實測 3／3 通過，排隊與安裝都在十數秒內，必要檢查名稱不變，且 macOS 分鐘數在公開版本庫免費。代價是必須同時修正 D-macOS（12.7.5），而 D-macOS 本身是「檢查腳本可能靜默通過」的缺陷，不論是否採 (g) 都應修正。
+2. **(a)**：(g) 不解決 Chromium、Firefox：它們留在 Ubuntu，PR #6 的 Firefox 在 AWS 上同樣下載 13 分鐘。macOS 也可能在高峰時排隊。逾時把這些情況從「最多 6 小時進行中」變成「明確未通過、可重跑」。建議值不變：`unit`、`acceptance-ids` 10 分鐘；`e2e`（Ubuntu 與 macOS 相同）30 分鐘；install step 10 分鐘。`timeout-minutes` 是否包含排隊時間未查證；建議值以執行時間設定，排隊不在其內時不受影響。
+3. **(e)**：Ubuntu 上的 job（`unit`、`acceptance-ids`、Chromium、Firefox）固定 `ubuntu-26.04`；WebKit 由 (g) 固定為 `macos-15`（不用 `macos-latest`，同樣是為了不隨標籤移轉）。
+4. 不採 (b)、(c)，理由同前（同主機重試與瀏覽器快取都不處理慢的 apt 鏡像）。**(d) 與 (g′) 暫不採用**：(a)＋(e)＋(g) 之後，若 Ubuntu 上的 e2e 在 M3 再發生 2 次以上同類逾時（依 (a) 的處理程序紀錄，次數由測試報告彙整），由設計 agent 另開待決問題，比較 (g′)（三種引擎都在 macOS）與 (d)（Chromium、Firefox 改用容器），附在不合併的探測 PR 上的量測，再由產品負責人決定。
+
+**(g) 解決與不解決的部分（摘要）：** 解決——WebKit 的 apt 下載（最大的一段）與 WebKit job 對 Linux 多雲鏡像的依賴。不解決——Chromium、Firefox 的 apt 下載（仍在 Ubuntu）；瀏覽器本體自外部 CDN 下載；macOS 的容量與排隊；macOS 上 NFR-3、NFR-6 的行為（PR-4 才轉實測，未查證）；macOS 映像日後淘汰時的更新。
 
 **決定後的 PR（建議 PR-1d，不併入 PR-2）：**
 
-- **獨立的 PR-1d，位於探測 PR B 之後、PR-2 之前**，以本設計 v0.7 的分支（`design/dq-15-ci-timeout`）為基礎，設計文件隨 PR-1d 合併（同 PR-1b、PR-1c 的做法）。理由：(1) PR-2 的每個 commit 都同樣要跑 `e2e (webkit)`，修正應在 PR-2 之前生效；(2) 只改 ci.yml，R-14 的審查範圍小而明確，不與 PR-2 的遊戲邏輯與 4.3 亂數契約混在同一次審查；(3) ci.yml 由 `pull_request` 事件以 **PR 自己的版本**執行，PR-1d 開啟時就以新設定跑完整 CI，自己驗證自己，不像 review-gate 需要「由舊版判定」的程序（12.6）。
-- **不需要另開探測 PR。** PR-1d 不修改 review-gate.yml、`review-gate.mjs` 與其匯入的模組，所以不需重做步驟 8b；新設定由 PR-1d 自己的 CI 驗證。逾時時的結論值（2.8 未查證項目）建議在 PR-1d 審查前，以一個暫時的 commit 把 install step 的逾時改為 1 分鐘觀察一次、記錄結論值與「重跑失敗的 job」是否涵蓋它，再以下一個 commit 還原；這兩個 commit 在 Squash 合併後不留在 main 上，審查針對最後的 head。若產品負責人採 (d)，則建議先開不合併的探測 PR C 量測拉取時間與三引擎結果，再開 PR-1d。
-- **不建議同時修改其他工作流程：** review-gate.yml 的修改會觸發 12.6 的「由舊版判定」與步驟 8b，成本與本問題不相稱；pr-body.yml、deploy.yml 不安裝外部套件，本次不需要。這三個工作流程沒有逾時，列為殘餘風險（review-gate 的執行卡住時 `review-record` 會停在進行中；deploy 卡住時 EQ-12 依 DQ-9 處理）。
-- PR-1d 的內容與驗收寫在第 14 節（依 DQ-15 決定）。PR-1d 沒有骨架轉實測；`unit`、`acceptance-ids`、三個 `e2e`、`pr-body`、`review-record` 照常為必要檢查。
+- **PR-1d 的範圍**（採建議時）：(1) ci.yml：(a)＋(e)＋(g)；(2) **缺陷 D-macOS 的修正**（12.7.5）：6 支腳本的進入點判斷、`check-acceptance-ids` 在 `tests/unit/` 沒有任何模組單元測試檔時失敗；(3) 對應的模組單元測試（`tests/unit/workflows.test.mjs` 與 module-test-standards.md M11～M13 的 v0.7 案例）；(4) 本設計 v0.7 文件與設計 skill（隨本 PR 合併；以 `design/dq-15-ci-timeout` 為基礎）。不改 `src/`、驗收測試、reporter、`tests/support/` 與 pr-body.yml、review-gate.yml、deploy.yml。
+- **為何同一 PR、不併入 PR-2：** (g) 沒有 D-macOS 的修正就會讓 AC-EQ-9 在 macOS 失敗，兩者必須同時合併；D-macOS 是檢查腳本可能靜默通過的缺陷，應在 PR-2 之前修正；PR-2 的每個 commit 同樣受 CI 卡住的影響；與遊戲邏輯分開，R-14 的審查範圍明確。
+- **PR-1d 由 main 上的 PR-1c 版 review-gate 判定**（PR-1d 修改了 `review-gate.mjs` 與它匯入的 `check-pr-body.mjs`，12.6「新版 review-gate 在平台上的第一次執行」）。合併前兩道確認：(i) 在 PR-1d 分支執行 `node scripts/review-gate.mjs --dry-run`（新版，`PR_NUMBER` 為 PR-1d），結果須為 `success`，輸出貼在 PR-1d 對話區；這也以真實路徑驗證新的進入點判斷會執行主程式。(ii) 產品負責人人工確認：PR-1c 清單的 (i)～(vi)、(xii) 照常適用，另加 **(xiii) `git diff origin/main -- scripts/review-gate.mjs scripts/check-pr-body.mjs scripts/detection.mjs` 的差異只有 12.7.5 規定的進入點判斷（`import` 一行與 `if` 一行），判定邏輯沒有改變**。ci.yml 與其餘腳本在 `pull_request` 事件以 PR-1d 自己的版本執行，PR-1d 開啟時就以新設定（含 macOS 的 WebKit）跑完整 CI。
+- **PR-1d 合併前不需要探測 PR：** (g) 已在 PR #6 量測；ci.yml 的變更由 PR-1d 自己驗證。逾時的結論值（verification.md 2.8 未查證項目）建議在審查前以一個暫時 commit（install step 逾時改為 1 分鐘）觀察並以下一個 commit 還原。
+- **PR-1d 合併後需要步驟 8b，建議以探測 PR D 執行（不合併），在 PR-2 開啟前：** 理由：(1) 12.6 規定修改 `review-gate.mjs` 或其匯入的模組的 PR 合併後，下一個 PR 要重做步驟 8b，讓 AC-EQ-11 的證據描述 main 目前的版本；(2) 這次修改的正是進入點：若判斷寫錯，main 上的 review-gate 會**什麼都不做並以 0 結束**，不寫入 `review-record`，下一個 PR 無法合併，修正它的 PR 只能依 DQ-11 (a) 處理。GitHub 的 Linux 工作目錄沒有符號連結，預期行為不變，但只有平台上的第一次執行能證明。把這次執行放在不合併的探測 PR D（branch `probe/review-gate-d`，空 commit，觀察 AC-EQ-11 三步，同步驟 8b 的做法），符合 DQ-11 (d)「把第一次執行移到不需合併的 PR」的決定；替代做法是讓 PR-2 的一般流程自然包含三步（12.6 允許），成本較低，但若新版無法寫入，卡住的是 PR-2。**建議探測 PR D。**
+- 若產品負責人不採 (g)：D-macOS 仍建議在 PR-1d 修正（理由同上），步驟 8b 的需要不變。
 
-**與既有決定的交互：** DQ-9（EQ-12 外部延遲）處理部署，本 DQ 處理 PR 的 CI，兩者的處理程序同樣是「重跑有限次數並記錄，仍失敗由產品負責人判定，不修改測試」；不重疊。DQ-11 (a)（暫時移除必要檢查）只適用於 review-gate 無法寫入狀態的情況，**不適用於本 DQ**：e2e 逾時時不得暫時移除 `e2e (webkit)`。12.3 的 `retries: 0` 不受任何選項影響。
+**與既有決定的交互：** DQ-9 處理部署、本 DQ 處理 PR 的 CI，處理程序同為「重跑有限次數並記錄，仍失敗由產品負責人判定，不修改測試」。DQ-11 (a)（暫時移除必要檢查）只適用於 review-gate 無法寫入狀態，**不適用於 e2e 逾時**；PR-1d 合併後的 review-gate 無法寫入時才適用（見上）。DQ-11 (d) 是建議探測 PR D 的依據。12.3 的 `retries: 0` 不受任何選項影響。
+
+#### 12.7.5 缺陷 D-macOS：直接執行判斷不容忍符號連結（v0.7 新增；修正排入 PR-1d）
+
+**問題：** `scripts/` 的 6 支腳本（`build.mjs`、`serve.mjs`、`check-acceptance-ids.mjs`、`check-acceptance-results.mjs`、`check-pr-body.mjs`、`review-gate.mjs`）以 `process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)` 判斷是否直接執行。Node.js 把主模組解析為實際路徑（`import.meta.url` 是實際路徑），`process.argv[1]` 卻保留呼叫時的路徑；經符號連結執行時兩者不相等，腳本**不執行主程式並以 0 結束**。macOS 的 `os.tmpdir()`（`/var/folders/…`）經 `/var → /private/var` 符號連結，所以 AC-EQ-9 第 1 個測試（在暫存目錄建置）在 macOS 失敗（PR #6）。設計 agent 已在 Linux（Node.js 22.23.4）以符號連結目錄重現：舊判斷為 false、以 realpath 比對為 true（verification.md 2.8 (7)）。
+
+**影響分類（經符號連結執行時）：**
+
+| 腳本 | 結果 | 類型 |
+|---|---|---|
+| `check-acceptance-ids.mjs`、`check-acceptance-results.mjs`、`check-pr-body.mjs` | 不檢查、以 0 結束，**CI 判為通過** | 靜默通過（fail-open），最嚴重 |
+| `review-gate.mjs` | 不寫入 `review-record`，必要檢查停在沒有狀態 | 靜默不作為；合併被擋（fail-closed），但看起來像卡住 |
+| `build.mjs` | 不產生 `dist/`；後續測試或部署失敗 | 下游失敗（fail-closed） |
+| `serve.mjs` | 不啟動伺服器；Playwright 的 `webServer` 逾時 | 下游失敗（fail-closed） |
+
+目前 CI 的工作目錄（Linux `/home/runner/work/…`、macOS `/Users/runner/work/…`）不經符號連結，所以現行 CI 的判定沒有受影響；只有在暫存目錄或經符號連結的路徑執行時發生。
+
+**修正規格（6 支一致）：** 每支腳本把進入點判斷改為下列一行（並在既有的 `node:fs` 匯入中加入 `realpathSync`，沒有時新增 `import { realpathSync } from 'node:fs';`）：
+
+```js
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
+```
+
+- **不加 try/catch。** `realpathSync` 丟出例外時讓程序以非 0 結束（fail-closed）；改回傳 false 會重新造成「什麼都不做並以 0 結束」。
+- **不用 `import.meta.main`。** Node.js 文件：`import.meta.main` 自 v22.18.0 加入，Stability 1.0（Early development）；`package.json` 的 `engines` 為 `>=22`，在 22.0～22.17 為 `undefined`，判斷會變成恆假，正是本缺陷的形態。
+- **不抽成共用模組。** 每支腳本維持獨立；共用模組會成為 review-gate 的新匯入模組（R-14 清單與 12.6 的範圍擴大）。一致性由單元測試固定（下方）。
+- `--preserve-symlinks-main` 下兩邊都是符號連結路徑，以 realpath 比對仍相等（實測）。
+- 判定邏輯與輸出不變；被測試匯入時（`process.argv[1]` 為測試檔）不執行主程式，與現在相同（實測：被匯入時為 false）。
+
+**同類的「靜默成功」風險（設計 agent 檢查）：**
+
+1. **`node --test` 的 glob 沒有對應任何檔案時以 0 結束**（實測 Node.js 22.23.4）。`unit` job 的第一步（`node --test 'tests/unit/**/*.test.mjs'`）在 `tests/unit/` 沒有測試檔時會通過。驗收測試層已受保護（`check-acceptance-ids` 在驗收測試檔為 0 時失敗，`check-acceptance-results` 以靜態清單比對結果）；模組單元測試沒有。**修正（PR-1d）：** `check-acceptance-ids.mjs` 在 `tests/unit/` 下沒有任何 `*.test.mjs` 時失敗（訊息「tests/unit/ 下沒有任何模組單元測試檔」，與驗收測試檔為 0 的既有規則對稱）；`tests/unit/workflows.test.mjs` 逐字固定 `unit` job 第一步的指令與 glob（既有測試若未逐字固定則補上）。殘餘：單元測試檔存在但 glob 被改成不對應它們——由逐字固定與 R-14 攔下。
+2. **review-gate 不作為**：屬 fail-closed，由步驟 8b（探測 PR D）在平台上確認。
+3. **reporter 未載入**：結果檔不存在，`check-acceptance-results` 以「輸入錯誤」失敗（12.2.1，既有）。
+4. **Playwright 找不到測試**：以非 0 結束（未查證 1.63.0 的預設；結果檢查以靜態清單比對，即使以 0 結束也會失敗）。
+5. 其餘腳本的提早結束路徑（缺少參數、事件檔）都以 2 結束（已讀程式確認）。
+
+**R-14：** 修正只讓更多情況執行檢查，不降低檢查；審查者確認 6 支的進入點都是上方那一行、沒有 try/catch、沒有其他變更（review-gate 與 check-pr-body 另見上方 (xiii)）。
 
 ---
 
@@ -915,7 +959,7 @@ jobs:
 | PR-1 基礎 | 以 branch `design/initial` 為基礎（包含其中設計文件與設計 skill 的 commit；設計文件不另外單獨合併，見 DQ-8）；目錄結構、package.json、playwright.config、scripts 全部（build、serve、check-acceptance-ids、check-pr-body、review-gate）、四個工作流程、最小可載入的 `index.html`（只顯示 `version` 元素）、PR 範本更新（12.4）、全部驗收骨架（含設計補充驗收 AC-PS-5、AC-PS-8、AC-RS-4、AC-RS-5、AC-RC-9、NFR-4 的骨架；DQ-10 決定全部啟用，`supplementary-acceptance.json` 的 `enforced: true` 隨本 PR 生效，與骨架同一 PR）、設計文件與設計 skill（docs/design/、.claude/skills/software-design-phase/）、.gitignore | EQ-1、EQ-2（設定步驟）、EQ-3、EQ-4、EQ-5、EQ-9、EQ-11、EQ-12、NFR-1 | AC-EQ-4、AC-EQ-9、NFR-7 首頁 | 首頁與版本號元素（PR-1 提供）。補充驗收骨架為略過，不需畫面 |
 | PR-1b 合併前修正（v0.5 新增） | 本設計 v0.5 文件（docs/design/、.claude/skills/software-design-phase/ 1.5；隨本 PR 合併，不單獨合併）。實作 agent：`check-acceptance-ids.mjs` 依 12.2 v0.5（掃描範圍、檔案位置、單元測試不得帶編號、略過寫法）；新增 `check-acceptance-results.mjs`、`acceptance-reporter.mjs`、`acceptance-reporter-pw.mjs`（12.2.1，啟用第 1、2、4、6 項）；`check-acceptance-ids.mjs` 加 12.2 第 9a～9c 點與第 4 點的副檔名範圍；ci.yml 的 `unit` 分兩次執行並檢查結果、`e2e` 以 job 層級 `BUILD_SHA` 並檢查結果（12.1、第 11 節）；playwright.config 加自訂 reporter、一般 project 的 `testMatch`（12.3）；`review-gate.mjs` 依 review-process.md 第 4 節 v0.5（白名單式判定、R-1～R-15、工作階段比對）並加 `--dry-run`（12.6）；`check-pr-body.mjs` 的作者工作階段格式（12.4）；對應的模組單元測試（module-test-standards.md M12）。測試 agent：`tests/support/assertions.mjs`（12.2.1 第 6 項）；已實測的 node:test 驗收測試改由它匯入 `assert`；AC-EQ-4 測試補 12.2 第 11 點的反例與略過寫法的判定；AC-EQ-9 第二個測試在 CI 中必須取得 `BUILD_SHA`（acceptance-test-plan.md #51）。不改任何產品程式（`src/`） | EQ-2、EQ-4、EQ-5、EQ-9、EQ-11；M3 離開條件 | AC-EQ-4、AC-EQ-9（加強，維持通過）；NFR-7 首頁（維持）；AC-EQ-11、AC-EQ-2（人工，12.6 步驟 8；新版的 AC-EQ-11 證據在下一個 PR，步驟 8b。v0.6：PR-1b 版不做步驟 8b，改在 PR-1c 合併後以探測 PR B 觀察最終版本） | 只涉及 CI、檢查腳本與 PR-1 的首頁；不需新畫面。AC-EQ-11 的 Given（其他檢查都通過、沒有審查紀錄的 PR）由 PR-1b 本身提供，前提是 review-gate 在 main 上（已確認）與 6b 已完成 |
 | PR-1c 審查檢查收緊（v0.6 新增；v0.6.1 確定） | 本設計 v0.6、v0.6.1 文件（docs/design/、.claude/skills/software-design-phase/ 1.8；隨本 PR 合併，不單獨合併）。實作 agent：新增 `scripts/detection.mjs`（F1～F9、F2′ 文法、X1～X5；v0.6.3 另含自 fa05bbb 逐字複製的 `legacyFieldForm`、`legacyIsTableLine`）；`scripts/review-gate.mjs` 依 review-process.md 4.1（X1～X7、T3、T4、檢查順序、`isCandidateFor` 改為原文含 head SHA、v0.6.3 的相容偵測）；`scripts/check-pr-body.mjs` 的 `validateAuthorSection`（12.4 第 4 點，review-gate 使用同一函式）；`scripts/check-acceptance-ids.mjs` 的 12.2 第 9d、9e 點；`scripts/check-acceptance-results.mjs` 的 12.2.1 第 4 項（空前綴）；對應的模組單元測試（module-test-standards.md M12）。測試 agent：AC-EQ-4 測試（`tests/acceptance/unit/acceptance-ids.test.mjs`）補 12.2 第 11 點的 v0.6.1 反例與對照組；確認既有驗收測試沒有 9d、9e 禁止的寫法。不改 `src/`、工作流程檔、reporter 與 `tests/support/`。合併前完成 12.6「PR-1c 由 PR-1b 版判定」；合併後步驟 8b（探測 PR B） | EQ-4、EQ-5、EQ-11；EQ-2（維持） | 沒有骨架轉實測；AC-EQ-4（加強，維持通過）、AC-EQ-9、NFR-7 首頁維持通過；AC-EQ-11（人工）以合併後的探測 PR B 為主要證據（步驟 8b） | 只涉及 CI 檢查腳本與 PR 說明，不需畫面。AC-EQ-4 的反例以測試資料建立；AC-EQ-11 的 Given（其他檢查都通過、沒有審查紀錄的 PR）由探測 PR B 提供 |
-| PR-1d CI 逾時與執行環境（v0.7 新增；依 DQ-15 決定） | 本設計 v0.7 文件（docs/design/、.claude/skills/software-design-phase/ 1.10；隨本 PR 合併）。實作 agent：依 DQ-15 採用的選項修改 ci.yml（建議 (a)＋(e) 時：`unit`、`acceptance-ids` job 層級 `timeout-minutes: 10`，`e2e` job 層級 `timeout-minutes: 30`、install step `timeout-minutes: 10`，三個 job `runs-on: ubuntu-26.04`；不加 `continue-on-error`；job 名稱與步驟不變）；`tests/unit/workflows.test.mjs` 補對應的模組單元測試（每個 ci.yml job 有 `timeout-minutes`、沒有 `continue-on-error`、`runs-on` 為決定的值）；審查前以暫時 commit 觀察一次逾時的結論值並還原（12.7.4）。不改 `src/`、測試、檢查腳本與其他工作流程 | EQ-2、EQ-3、NFR-1（維持） | 沒有骨架轉實測；全部已實測的驗收（AC-EQ-4、AC-EQ-9、NFR-7 首頁）維持通過 | 只涉及 CI 設定，不需畫面 |
+| PR-1d CI 逾時與執行環境、D-macOS（v0.7 新增；ci.yml 依 DQ-15 決定） | 本設計 v0.7 文件（docs/design/、.claude/skills/software-design-phase/ 1.11；隨本 PR 合併）。實作 agent：(1) 依 DQ-15 採用的選項修改 ci.yml（建議 (a)＋(e)＋(g) 時：`unit`、`acceptance-ids` job 層級 `timeout-minutes: 10`、`runs-on: ubuntu-26.04`；`e2e` job 層級 `timeout-minutes: 30`、`runs-on: ${{ matrix.os \|\| 'ubuntu-26.04' }}`，matrix 維持三引擎並以 `include` 為 webkit 加 `os: macos-15`，install step `timeout-minutes: 10`，macOS 上不加 `--with-deps`；不加 `continue-on-error`；job 名稱與其餘步驟不變）；(2) D-macOS：6 支腳本的進入點判斷改為 12.7.5 的一行；`check-acceptance-ids.mjs` 在 `tests/unit/` 沒有測試檔時失敗；(3) 模組單元測試：`tests/unit/workflows.test.mjs` 與 module-test-standards.md M11～M13 的 v0.7 案例（經符號連結執行、6 支一致、單元測試檔為 0）；(4) 合併前 review-gate 新版 `--dry-run`；審查前以暫時 commit 觀察一次逾時的結論值並還原（12.7.4）。不改 `src/`、驗收測試、reporter、`tests/support/` 與其他工作流程 | EQ-2、EQ-3、EQ-4、EQ-5、EQ-11、NFR-1（維持） | 沒有骨架轉實測；全部已實測的驗收（AC-EQ-4、AC-EQ-9、NFR-7 首頁）在三引擎（WebKit 在 macOS）維持通過；AC-EQ-11（人工）以合併後的探測 PR D 觀察 | 只涉及 CI 設定與腳本，不需畫面 |
 | PR-2 遊戲邏輯 | core 中 `records.js` 以外的模組（config、random、deal、time、game）＋單元測試（含 4.3 的亂數呼叫契約）；`records.js` 歸 PR-5 | GP-1～8、TM-1～5、LV-1、LV-5、LV-6、HT-1～10、PS-1～3、PS-9 的邏輯 | AC-GP-2（統計）、AC-LV-5 | 無畫面（U 層） |
 | PR-3 牌面 | faces.js、config 的 faceIds | LV-2～LV-4 | AC-LV-2、AC-LV-3、AC-LV-4 | 無畫面（U 層） |
 | PR-4 遊戲、選單與結果畫面 | game-view；menu-view 的難度按鈕與進入關卡（不含紀錄、清除）＋選單頁尾的版本號（`version` 元素，維持 PR-1 已實測的 AC-EQ-9 與「NFR-7 首頁」）；result-view（勝利／失敗、難度名稱、時間、步數、提示次數、重玩本關、回到選單；不含新紀錄與挑戰下一個難度）；遊戲中回到選單；app 路由；clock；版面與 iOS 對策；測試 agent 的端對端牌面配置輔助函式（第 8 節，DQ-7；依賴 PR-2 的 `random.js`、`deal.js`，因此不早於本 PR） | GP-1～8、TM-1～4、LV-1、LV-6～LV-9、HT-1～10、PS-1～4、PS-7（不含紀錄部分）、PS-9、PS-10、RS-1～3、NFR-3、NFR-5、NFR-6、NFR-7、EQ-9（保留） | AC-GP-1～8（AC-GP-2 的 E 層）、AC-TM-1～4、AC-LV-1、AC-LV-6、AC-LV-7、AC-LV-8、AC-LV-9、AC-HT-1～5、AC-HT-7～10、AC-PS-1～4、AC-PS-9、AC-PS-10、AC-RS-1～3、NFR-3、NFR-4（側欄版面）、NFR-5 遊戲畫面、NFR-5 選單、NFR-5 結果畫面、NFR-6、NFR-7 選單、NFR-7 三關遊玩、NFR-7 結果畫面；AC-EQ-9、NFR-7 首頁（PR-1 已實測，本 PR 須維持通過） | 選單進入關卡、遊戲畫面、結果畫面、重玩本關、回到選單（皆在本 PR）；AC-LV-7「沒有任何紀錄」在無紀錄功能時自然成立 |
@@ -923,7 +967,7 @@ jobs:
 | PR-6 Should 需求 | 全部本輪實作（DQ-10）：visibility.js 與背景自動暫停、回前景維持暫停（PS-5，DQ-2）；遊戲畫面「重新開始」，任何進行中狀態可用（PS-8，DQ-1）；勝利畫面「新紀錄」（RS-4 v1.1，DQ-3）與「挑戰下一個難度」（RS-5）；儲存不可用提示與記憶體紀錄（RC-9，DQ-5）；README 五節（EQ-10） | PS-5、PS-8、RS-4、RS-5、RC-9、EQ-10 | AC-PS-5、AC-PS-8、AC-RS-4、AC-RS-5、AC-RC-9；NFR-5 遊戲畫面（加入第 4 個按鈕）、NFR-5 結果畫面（加入挑戰下一個難度）、NFR-3、NFR-4 須維持通過 | 遊戲畫面、暫停（PR-4）；紀錄、選單紀錄顯示（PR-5）；重新開始按鈕、新紀錄標示、挑戰下一個難度、儲存不可用提示（本 PR）。AC-EQ-10 為人工，系統測試時執行 |
 | PR-7 M3 收尾 | CI 的 `acceptance-ids` 與每個 job 的 `check-acceptance-results` 都加上 `--no-skip`（12.2 第 10 點、12.2.1 第 3、5 項） | M3 離開條件 | 全部 | — |
 
-**PR-1d（v0.7 新增；內容依 DQ-15 決定）：** 位於探測 PR B 之後、PR-2 之前，只修改 `.github/workflows/ci.yml`（與對應的 `tests/unit/workflows.test.mjs`），以本設計 v0.7 的分支為基礎、設計文件隨本 PR 合併。DQ-15 決定前不開始實作。建議內容與理由見 12.7.4。
+**PR-1d（v0.7 新增；內容依 DQ-15 決定）：** 位於探測 PR B 之後、PR-2 之前，修改 `.github/workflows/ci.yml`（依 DQ-15 決定）並修正缺陷 D-macOS（6 支腳本的進入點判斷、`check-acceptance-ids` 的模組單元測試檔為 0 即失敗，12.7.5），以本設計 v0.7 的分支為基礎、設計文件隨本 PR 合併。PR-1d 修改 `review-gate.mjs` 與 `check-pr-body.mjs`，由 main 上的 PR-1c 版判定，合併前完成 12.7.4 的新版試算與人工確認 (xiii)，合併後以探測 PR D 做步驟 8b，再開始 PR-2。DQ-15 決定前不開始實作。建議內容與理由見 12.7.4。
 
 PR-1、PR-1b、PR-1c 的特別處理見 12.6 步驟 4、6b、8、8b、「EQ-2 啟動例外的處理」與「v0.6 的順序」（DQ-8、DQ-11、DQ-12、DQ-14）；PR-1d 見 12.7.4（DQ-15）。
 
@@ -968,7 +1012,7 @@ PR-1、PR-1b、PR-1c 的特別處理見 12.6 步驟 4、6b、8、8b、「EQ-2 �
 | DQ-12 | AC-EQ-2 第一步「CI 失敗的 PR 以管理員身分合併被拒」以什麼驗證？ | 6a 已生效、直接推送已驗證被拒，但「CI 失敗時合併被拒」尚未有紀錄；步驟 8 (1) 的驗證 PR 自然出現一個必要檢查失敗、其他檢查通過的 PR | (a) **以 `review-record` 失敗驗證**：EQ-11 規定審查檢查是 CI 的一部分（「CI 應檢查…沒有時檢查失敗，依 EQ-2 無法合併」）；`enforce_admins` 作用於整條保護規則，不分檢查類型。不需額外 commit。(b) **另外以 `unit` 失敗驗證**：在驗證 PR 推送一個讓 `unit` 失敗的 commit，確認管理員合併被拒，再推送還原；較貼近字面，並實際觀察 check run 類的必要檢查擋下管理員。代價：兩個 commit 與一輪 CI。**建議：採 DQ-11 (d) 時兩者都做（(b) 在探測 PR 上執行，不污染 PR-1b，成本很低）；未採 (d) 時採 (a)** | 步驟 8 | 已關閉（2026-11-10 16:06）：採 (a)＋(b)，都在探測 PR A 上執行 |
 | DQ-13 | 審查紀錄的偵測形式（review-process.md 第 4 節）是否進一步收緊，涵蓋目前仍被判為有效的「看似欄位或 R 列」的寫法 | v0.5.1：實作 agent 回報 v0.5 的偵測規則偵測不到合法的 `- 結果：` 行；設計 agent 修正為去除行首區塊標記後，以 PR-1b 的 `validateRecord` 實測 20 種寫法：引用、標題、有序清單、縮排中的第二個欄位與引用區塊中的表格都判為無效；NFKC 不轉換的項目符號（`•`、`・`、`–`）、工作清單、HTML 標籤與註解、反斜線跳脫、中文或括號編號、連結、以清單符號開頭的表格列、HTML 表格、條列中的「R-5：不通過」仍判為有效（review-gate 讀合法行的值）。這些在已簽核的 v0.5 字面規則下同樣不被偵測，所以不是 v0.5.1 新開的繞過，但收緊會改變審查紀錄的合法範圍並需修改 review-gate | (a) **維持 v0.5.1 規則**，殘餘風險寫在 review-process.md 第 4 節，由審查 agent 依格式撰寫、產品負責人抽查（AC-EQ-5）補足；不改程式。(b) **擴大偵測形式**：先移除 HTML 註解與標籤、反斜線跳脫、工作清單核取方塊，連結 `[文字](網址)` 只留文字，再去除行首**所有**非字母數字字元（Unicode 類別 L、N 以外）與編號（數字後接非字母數字字元、括號包住的數字）後比對標籤；表格列的偵測同樣先去除行首 `|` 以外的符號。條列中的「R-5：不通過」不在 (b) 的範圍（「發現的問題」本來就可以用條列描述某項的問題，判為無效會誤判合法紀錄），維持由審查與抽查處理。只增加無效的情況，第 2 節的合法格式不受影響。成本：`review-gate.mjs` 與單元測試小幅修改；依 12.6，修改 review-gate 需新版 `--dry-run` 試算並在下一個 PR 重做步驟 8b。(c) **(b)＋標記行以外不得有任何 HTML 標籤或註解**：最嚴；但說明欄引用程式碼（例：寫到 `<script>`）的合法紀錄也會無效，審查者需改寫後重留。**建議 (b)**：(a) 保留的是「讀者與 review-gate 讀到不同內容」的情況，正是白名單要消除的；(b) 成本低、沒有合法紀錄被誤判；(c) 的誤判會讓審查者反覆重留紀錄，而 HTML 註解不會被讀者看到，不構成讀者與檢查之間的不一致 | PR-1b 合併前決定（PR-1b 本身修改 review-gate，採 (b) 或 (c) 時在 PR-1b 一併實作，可共用同一次試算與步驟 8b；PR-1b 合併後才決定則需另一個修改 review-gate 的 PR，並再做一次試算與步驟 8b）。決定前不實作 (b)、(c) | 已關閉（2026-11-10 16:47（Asia/Taipei））：採 (b)。完整規則（F1～F8、T1、T2、20 種寫法的判定表、回歸檢查）寫在 review-process.md 第 4 節「偵測形式」；本列「選項與建議」欄只是決定前的摘要，以正文為準 |
 | DQ-14 | review-gate 的 PR-1b 版（DQ-13 (b)）仍有讀者與 review-gate 看到不同內容的寫法，是否收緊、採哪個做法？附帶問題：PR 說明「## 作者」段落中以半形冒號寫的「工作階段: x」不被採計為作者、`pr-body` 也不失敗（review-gate 的「審查者不等於作者」可因此被繞過），是否一併處理 | PR #3 審查紀錄（2026-11-10 09:17Z）「發現的問題」第 1 點（中）、第 2 點（低）：沒有前導直線的表格列、字元參照、以 U+3164 開頭的行被判為有效；PR-1 版同樣有效，所以 PR-1b 沒有放寬。設計 agent 以 cmark-gfm 實測並全面檢查同類問題，共 30 個案例（另含單欄表格、Default_Ignorable_Code_Point 與結合符號插在欄位名稱中、HTML 註解與處理指令、引號中含 `>` 的屬性、跨行標籤、簡體欄位名、把合法行或逐項表整段藏在註解中），見 review-process.md 4.1 | 選項的完整規則、誤判、成本與殘餘風險見 review-process.md 4.1。摘要：(a) **依 GFM 模擬渲染重寫偵測**（解碼字元參照、刪除可忽略字元、依 GFM 判定表格範圍）：誤判最低、成本高、模擬不完整處成為新繞過。(b) **正規化前先拒絕**字元參照、Default_Ignorable_Code_Point、結合符號、U+2800、第 1 行以外的 `<!`／`<?`、跨行標籤，標籤改用 CommonMark 文法、欄位名稱對應簡體字，並加兩條表格邊界規則（逐項表後必須是空行；全文只能有一個分隔列）：30 個案例全部無效、成本低；誤判為寫到字元參照（含程式碼中；PR #3 的實際紀錄因此無效）、emoji 變體選擇符、散文中的 `a<b`、HTML 註解、表後沒有空行。(c) **限定極小語法子集**：殘餘風險最低，但三則實際紀錄全部無效，審查者的寫法要改。(d) **以 GitHub 的 `body_html` 判定**：誤判低、成本中高，依賴 GitHub 未承諾的 HTML 格式。(e) **不修改**，列為殘餘風險：不需 PR-1c。**建議 (b)，附帶問題一併採用**（作者段落中看似「工作階段」的行都必須逐字合法） | PR-1c（決定前不開始實作）；PR-2 在 PR-1c 合併與探測 PR B 之後開始。期限：PR-1c 實作開始前 | 已關閉（2026-11-10 22:12（Asia/Taipei））：採 (b)，附帶問題一併處理；同時決定 PR #3 審查第 3、4(b) 點放進 PR-1c。完整規則寫在 review-process.md 4.1（v0.6.1）；寫入本文件 12.2 第 9d、9e 點、12.2.1 第 4 項、12.4 第 4 點、12.6、第 13、14 節，module-test-standards.md M12。本列「選項與建議」欄是決定前的摘要，以正文為準 |
-| DQ-15 | CI 的外部相依（`npx playwright install --with-deps` 的 apt 鏡像與瀏覽器下載）變慢時如何處理？ci.yml 沒有 `timeout-minutes`，job 最多 360 分鐘進行中，期間 PR 無法合併 | 2026-11-18 探測 PR B（PR #5）head 9cd3381 的 `e2e (webkit)` 兩次卡在 apt 下載（185 個套件、139 MB；10 分鐘只取得約 56 個）；日誌顯示卡住的那一次排在 AWS 主機、使用 EC2 鏡像，其餘紀錄在 Azure（verification.md 2.8） | 完整的做法、能與不能解決的事、成本、對必要檢查名稱與 R-14 的影響、殘餘風險見 12.7.3。摘要：(a) 只加 job／step 逾時並訂重跑程序；(b) (a)＋安裝步驟自動重試；(c) 快取瀏覽器（apt 相依無法快取，不解決本問題）；(d) 改用 `mcr.microsoft.com/playwright:v1.63.0-noble` 容器（去掉 apt，但改為依賴映像拉取，拉取時間未查證）；(e) `runs-on` 固定為 `ubuntu-26.04`（避免 `-latest` 移轉；不能選雲端）；(f) 不修改。對需求：卡住或逾時都不違反 EQ-2、EQ-3、NFR-1（是 EQ-2 正常運作的結果），不影響 EQ-12；違反的是移除必要檢查或繞過（12.7.2）。**建議 (a)＋(e)**；(d) 在逾時再發生 2 次以上時另開待決問題並以探測 PR 量測 | PR-1d（決定前不開始實作）；建議在 PR-2 開啟前決定 | 待決定 |
+| DQ-15 | CI 的外部相依（`npx playwright install --with-deps` 的 apt 鏡像與瀏覽器下載）變慢時如何處理？ci.yml 沒有 `timeout-minutes`，job 最多 360 分鐘進行中，期間 PR 無法合併 | 2026-11-18 探測 PR B（PR #5）head 9cd3381 的 `e2e (webkit)` 兩次卡在 apt 下載（185 個套件、139 MB）；卡住的那一次排在 AWS 主機、使用 EC2 鏡像（verification.md 2.8）。同日 PR #6 的 Firefox 也在 AWS 上下載 13 分鐘。PR #6 實測選項 (g) 時發現缺陷 D-macOS（12.7.5） | 完整內容見 12.7.3～12.7.5。摘要：(a) 只加 job／step 逾時並訂重跑程序；(b) (a)＋安裝自動重試；(c) 快取瀏覽器（apt 相依無法快取）；(d) Playwright 官方容器（拉取時間未查證）；(e) `runs-on` 固定 `ubuntu-26.04`；(f) 不修改；**(g) WebKit 改在 `macos-15`、不加 `--with-deps`（PR #6 實測 3／3 通過；只解決 WebKit，Chromium、Firefox 仍在 Ubuntu）**。對需求：卡住或逾時都不違反 EQ-2、EQ-3、NFR-1，不影響 EQ-12（12.7.2）。**建議 (a)＋(e)＋(g)**，D-macOS 一併在 PR-1d 修正，合併後以探測 PR D 做步驟 8b；(d)、(g′) 在 Ubuntu 的 e2e 再逾時 2 次以上時另開待決問題 | PR-1d（決定前不開始實作）；建議在 PR-2 開啟前決定 | 待決定 |
 
 ---
 
@@ -1001,3 +1045,4 @@ PR-1、PR-1b、PR-1c 的特別處理見 12.6 步驟 4、6b、8、8b、「EQ-2 �
 | 0.6.2 | 2026-11-10 | 簽核後釐清（不改產品負責人的決定）：12.6 PR #2 試算的預期改為實際原因（head 沒有候選紀錄，兩版皆「沒有針對 e042cbd 的審查紀錄」）；12.2 第 9d 點寫明涵蓋修飾變體與 `describe`；12.2.1 第 4 項寫明空前綴也套用於樣板 `describe` 的外層路徑 | 實作 agent 依 agent-dev-workflow 5.1 回報的 6 點（branch `pr-1c-impl`，head 2cc1fa4；統籌 agent 轉達） |
 | 0.6.3 | 2026-11-11 | 設計缺陷修正：review-process.md 4.1 新增相容偵測（欄位行與表格列的偵測取 PR-1b 版與 PR-1c 版的聯集），撤回 v0.6.1 的錯誤論證；第 13 節摘要、第 14 節 PR-1c 列對應更新。恢復 DQ-14 (b) 已決定的「只增加無效」性質，不改產品負責人的決定，不需另行簽核 | PR #4 審查紀錄（comment 6790734907）：審查結論「需修改」，R-14 不通過 |
 | 0.7 | 2026-11-18 | 新增 12.7「CI 外部相依的逾時與穩定性」（問題、對需求的影響、(a)～(f) 六個選項、建議 (a)＋(e)、PR-1d 的切分與是否需要探測 PR）與 DQ-15；12.1 共同設定標示依 DQ-15 決定並記錄快取現況（e2e 已有 `cache: npm`）；第 14 節新增 PR-1d 的說明與切分列（依 DQ-15 決定）；第 16 節標題與說明。不改產品行為與既有檢查規則 | 統籌 agent 2026-11-18 對探測 PR B（PR #5）`e2e (webkit)` 卡住的調查；設計 agent 以 API 讀取執行紀錄與日誌、讀官方文件原始檔（verification.md 2.8） |
+| 0.7（選項 (g) 與 D-macOS） | 2026-11-18 | 同一版本內（仍待簽核）：12.7.1 補 PR #6 的 Firefox 也在 AWS 上慢；12.7.3 新增選項 (g)（WebKit 在 macOS，PR #6 實測）與變體 (g′)；12.7.4 建議改為 (a)＋(e)＋(g)，PR-1d 範圍加入 D-macOS，寫明 PR-1d 由 PR-1c 版判定的兩道確認與合併後以探測 PR D 做步驟 8b 的理由；新增 12.7.5 缺陷 D-macOS 的修正規格與同類「靜默成功」風險（`node --test` 的 glob 無對應檔案時以 0 結束）；第 14 節 PR-1d、第 16 節 DQ-15 更新 | 產品負責人 2026-11-18 15:20 指示先實測 (g)；PR #6 量測紀錄（comment 6972345639）；統籌 agent 的查證與缺陷回報 |

@@ -2,7 +2,7 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.7（M13 標示 ci.yml 逾時與 `runs-on` 的測試範圍依 DQ-15 決定；v0.7 待簽核）；0.6.3（M12 補相容偵測的案例與差分測試）；0.6.2（M12 補 v0.6.2 釐清的邊界）；0.6.1（M12 寫入 DQ-14 (b) 與 12.2 第 9d、9e 點、12.2.1 第 4 項的測試範圍）；0.6（M12 標示 DQ-14 待決定的 review-gate 邊界；M13 的 AC-EQ-11 證據改在探測 PR B）；0.5.1（簽核後釐清：M12 邊界補偵測形式、結果檔交接、全域錯誤與只含骨架的檔案）；0.5（M12 的檢查腳本邊界依 spec.md v0.5 修訂；新增執行結果檢查） |
+| 版本 | 0.7（M11、M12 新增 D-macOS 的案例（經符號連結執行、6 支一致、模組單元測試檔為 0）；M13 標示 ci.yml 逾時、`runs-on` 與 WebKit 在 macOS 的測試範圍依 DQ-15 決定；v0.7 待簽核）；0.6.3（M12 補相容偵測的案例與差分測試）；0.6.2（M12 補 v0.6.2 釐清的邊界）；0.6.1（M12 寫入 DQ-14 (b) 與 12.2 第 9d、9e 點、12.2.1 第 4 項的測試範圍）；0.6（M12 標示 DQ-14 待決定的 review-gate 邊界；M13 的 AC-EQ-11 證據改在探測 PR B）；0.5.1（簽核後釐清：M12 邊界補偵測形式、結果檔交接、全域錯誤與只含骨架的檔案）；0.5（M12 的檢查腳本邊界依 spec.md v0.5 修訂；新增執行結果檢查） |
 | 日期 | 2026-11-18 |
 | 狀態 | v0.4 已簽核（2026-11-09 16:12）；v0.5 已簽核（2026-11-10 16:06）；v0.5.1 已確認（2026-11-10 16:47）（EQ-6）；v0.6 已簽核（2026-11-10 22:12（Asia/Taipei））；v0.6.1 依該次決定展開 |
 | 依據 | docs/requirements.md v1.1；spec.md v0.5.1；review-process.md v0.5.1；agent-dev-workflow 第 3.1 節（測試分工）；PR #1 審查紀錄 N-1、N-2 |
@@ -135,6 +135,7 @@
 | 對應 | EQ-9、C-2；AC-EQ-9 |
 | 單元測試 | 把版本字串計算寫成純函式測試；建置到暫存目錄後檢查檔案清單 |
 | 驗收測試 | AC-EQ-9（E 層）；部署後 `smoke` |
+| v0.7 補充（D-macOS，PR-1d） | `build.mjs` 經符號連結執行（在 `os.tmpdir()` 下建立指向版本庫根目錄或 `scripts/` 的符號連結，執行 `node <連結>/scripts/build.mjs`）時必須執行建置，產生與經實際路徑執行相同的 `dist/` 檔案清單與 `version.js` 內容；被測試匯入時不執行建置（既有行為維持）。在 Linux 的 `unit` job 執行，不依賴 macOS |
 
 ### M12 CI 腳本（check-acceptance-ids、check-acceptance-results、acceptance-reporter、acceptance-reporter-pw、check-pr-body、review-gate）
 
@@ -145,6 +146,7 @@
 | 對應 | EQ-4、EQ-5、EQ-11、workflow.md 4.4；AC-EQ-4 |
 | 單元測試 | check-pr-body、review-gate、check-acceptance-ids、check-acceptance-results、acceptance-reporter、acceptance-reporter-pw 的內部函式（實作 agent；reporter 以本次實測格式的事件序列為測試資料）。`tests/support/assertions.mjs` 由測試 agent 撰寫，其行為由 AC-EQ-4 測試或其自身的驗收測試涵蓋（以只含空本體、吞掉斷言的測試資料執行 CI 指令，確認結果檢查失敗） |
 | 驗收測試 | AC-EQ-4（U 層，測試 agent）；AC-EQ-11、AC-EQ-2 由產品負責人人工驗收 |
+| v0.7 補充（D-macOS，PR-1d；spec.md 12.7.5） | (1) **經符號連結執行必須執行並得到與實際路徑相同的結果**：`check-acceptance-ids`、`check-acceptance-results`、`check-pr-body`、`review-gate`、`serve` 各以一個「必然失敗或必然報錯」的輸入（例：`check-acceptance-results` 傳不存在的結果檔；`check-pr-body` 傳不合格的 `--body-file`；`review-gate` 不設 `GITHUB_TOKEN`；`serve` 傳不存在的目錄；`check-acceptance-ids` 以 `tests/unit/` 為空的暫存版本庫複本）經實際路徑與經符號連結各執行一次，結束碼相同且**不為 0**、輸出含相同的錯誤訊息（反例：修正前經符號連結為 0 且沒有輸出）；`check-acceptance-ids` 另以版本庫本身經符號連結執行，結束碼 0 且輸出含「acceptance-ids：通過」。(2) **6 支一致**：靜態測試確認 6 支腳本都含 spec.md 12.7.5 規定的進入點判斷那一行、沒有任何一支仍含 `path.resolve(process.argv[1])`、進入點判斷外沒有 `try`。(3) `check-acceptance-ids` 在 `tests/unit/` 下沒有任何 `*.test.mjs` 時失敗並輸出「tests/unit/ 下沒有任何模組單元測試檔」；有 1 個時不因此失敗。(4) 變異檢查（記入 PR 說明）：把任一支的判斷改回 `path.resolve` 時 (1) 或 (2) 失敗。測試名稱不得含驗收編號 |
 
 ### M13 工作流程與 GitHub 設定
 
@@ -154,7 +156,7 @@
 | 對應 | EQ-1、EQ-2、EQ-3、EQ-11、EQ-12、NFR-1 |
 | 驗證 | 人工（AC-EQ-1、AC-EQ-2、AC-EQ-3、AC-EQ-11、AC-EQ-12），由產品負責人依 spec.md 12.6 步驟 8 執行；AC-EQ-11 與 AC-EQ-2 的合併被拒在 PR-1b 執行（v0.5；實際在探測 PR A 完成）。v0.6：AC-EQ-11 描述主分支版本的證據改在 PR-1c 合併後的探測 PR B（12.6 步驟 8b）；PR-1b 版不做步驟 8b |
 | v0.5 補充 | e2e job 的 `BUILD_SHA` 為 job 層級，建置與兩個 Playwright 步驟都取得同一個值；`unit` 與 `e2e` job 含執行結果檢查步驟；job 名稱不變（spec.md 12.1）。PR-1 已有的工作流程單元測試（`tests/unit/workflows.test.mjs`）依此補充 |
-| v0.7 補充（依 DQ-15 決定） | 決定後，`tests/unit/workflows.test.mjs` 依採用的選項補：ci.yml 每個 job 有 `timeout-minutes` 且值為 spec.md 12.7 決定的值（建議 (a) 時 `unit`、`acceptance-ids` 10、`e2e` 30，install step 10）；ci.yml 任何 step 與 job 都沒有 `continue-on-error`；`runs-on` 為決定的值（建議 (e) 時 `ubuntu-26.04`）；job 名稱與必要檢查名稱不變。採 (d) 時另測：`container.image` 的標籤版本等於 `package.json` 的 `@playwright/test` 版本、不含 `playwright install` step。決定前不新增這些測試 |
+| v0.7 補充（依 DQ-15 決定） | 決定後，`tests/unit/workflows.test.mjs` 依採用的選項補：ci.yml 每個 job 有 `timeout-minutes` 且值為 spec.md 12.7 決定的值（建議 (a) 時 `unit`、`acceptance-ids` 10、`e2e` 30，install step 10）；ci.yml 任何 step 與 job 都沒有 `continue-on-error`；`runs-on` 為決定的值（建議 (e)＋(g) 時：`unit`、`acceptance-ids` 為 `ubuntu-26.04`，`e2e` 為 `${{ matrix.os \|\| 'ubuntu-26.04' }}`，matrix 仍為 `browser: [chromium, firefox, webkit]`，`include` 只為 webkit 加 `os: macos-15`）；install step 在 macOS 分支不含 `--with-deps`、在 Linux 分支含 `--with-deps`；`unit` job 第一步的指令與 glob 逐字固定（12.7.5 同類風險第 1 點）；job 名稱與必要檢查名稱不變。採 (d) 時另測：`container.image` 的標籤版本等於 `package.json` 的 `@playwright/test` 版本、不含 `playwright install` step。決定前不新增這些測試 |
 
 ---
 
@@ -264,3 +266,4 @@
 | 0.6.2 | 2026-11-10 | M12 補 v0.6.2 釐清的邊界（X7 巢狀、作者段落行號與 X1、`parseAuthorSessionsRaw` 的錯誤、9d 修飾變體與 `describe`、空前綴的樣板 `describe`）。追溯表不變 | 實作 agent 依 agent-dev-workflow 5.1 回報的 6 點（branch `pr-1c-impl`，head 2cc1fa4；統籌 agent 轉達） |
 | 0.6.3 | 2026-11-11 | M12 補相容偵測：N1～N12、`legacyFieldForm`／`legacyIsTableLine` 與 fa05bbb 一致、新舊兩版的差分單元測試（以固定的 PR-1b 版複本為對照）。追溯表不變 | PR #4 審查紀錄（comment 6790734907） |
 | 0.7 | 2026-11-18 | M13 新增「v0.7 補充（依 DQ-15 決定）」：決定後 ci.yml 逾時、`continue-on-error`、`runs-on`（與採 (d) 時的映像版本）的工作流程單元測試範圍 | spec.md v0.7 DQ-15 |
+| 0.7（選項 (g) 與 D-macOS） | 2026-11-18 | M11、M12 新增 D-macOS 的案例（經符號連結執行、6 支一致、`tests/unit/` 為空即失敗、變異檢查）；M13 的 v0.7 補充加入 (g) 的 matrix 與 install step、`unit` 的 glob 逐字固定 | spec.md v0.7 12.7.5；PR #6 |

@@ -2,7 +2,7 @@
 
 | 項目 | 內容 |
 |---|---|
-| 版本 | 0.7（新增 2.8：CI 外部相依的逾時與穩定性，DQ-15 的依據；v0.7 待簽核）；0.6.1（2.7 補 node:test 子測試的實測）；0.6（新增 2.7：PR-1b 合併後的平台狀態與 GFM 渲染實測，DQ-14 的依據）；0.5（`review-record` 的必要檢查改在 PR-1b 設定；PR-1 合併後的平台狀態紀錄） |
+| 版本 | 0.7（新增 2.8：CI 外部相依的逾時與穩定性，DQ-15 的依據；含選項 (g) 的 macOS 執行器查證與 PR #6 實測、D-macOS 的重現；v0.7 待簽核）；0.6.1（2.7 補 node:test 子測試的實測）；0.6（新增 2.7：PR-1b 合併後的平台狀態與 GFM 渲染實測，DQ-14 的依據）；0.5（`review-record` 的必要檢查改在 PR-1b 設定；PR-1 合併後的平台狀態紀錄） |
 | 日期 | 2026-11-18（查證日期 2026-11-04；第 2.6 節為 2026-11-09、第 2.7 節為 2026-11-10 以 API 讀取與本機實測；第 2.8 節為 2026-11-18 讀取官方文件原始檔與 API） |
 | 撰寫 | 設計 agent |
 | 依據 | docs/requirements.md v1.1（Q4、Q6 與查證相關內容與 v1.0 相同）第 12 節 Q4、Q6；第 8.2 節 A-1、A-2；第 8.4 節 |
@@ -228,10 +228,40 @@
 | 44251453907 第 1 次（2026-11-18 06:27Z，head 9cd3381） | e2e (webkit) | **AWS us-west-2** | ubuntu-26.04 **20261111.82.6** | **us-east-2.ec2.archive.ubuntu.com** | 185 個（另升級 1 個），139 MB | 06:27:58 開始，至 06:38:23 只取得第 56 個套件；libavcodec62（10.2 MB）06:35:38→06:38:12 約 2.5 分鐘（約 66 KB/s） | 由統籌 agent 於 06:38:37 取消（job 結論 `cancelled`） |
 | 同上 | e2e (chromium)、e2e (firefox) | Azure | 20261111.196.1 | azure.archive.ubuntu.com | chromium 9 個 21.9 MB；firefox 39 個 54.4 MB | 1 s；2 s | 18 s；13 s |
 | 44251453907 第 2 次（06:38:52Z 起） | e2e (webkit) | 進行中，日誌未能讀取 | — | — | — | install step 06:39:09 開始，06:48 仍未完成 | 進行中 |
+| 44258209548（2026-11-18 07:21Z，PR #6 探測 (g) 第 1 次，head e522f9e） | e2e (firefox) | **AWS us-west-2** | ubuntu-26.04 | （EC2 鏡像，同上） | 39 個，54.4 MB | **13 min 4 s（69.4 kB/s）** | — |
+| 同上 | e2e (webkit) | **MacCloud**（westus） | macos-15-arm64 | 不使用 apt | `npx playwright install webkit`（不加 `--with-deps`） | — | 約 10 s（統籌 agent 紀錄） |
+| PR #6 第 3～5 次（head 81376c4，run 44260684825 的 3 個 attempt） | e2e (webkit) | macOS | macos-15-arm64 20261104.0514.1 | — | 同上 | — | 約 11 s；job 33～39 s；排隊 2～3 s（統籌 agent 紀錄，PR #6 comment 6972345639） |
 
-**由紀錄得到的推定（未證明）：** 卡住的那一次是唯一一筆在 AWS 主機、使用 EC2 區域鏡像的紀錄；其餘 Azure 主機使用 Azure 鏡像，速度 2.5～14.5 MB/s。慢的來源推定為「多雲運算池排到 AWS 時的 Ubuntu 鏡像」，樣本只有一筆，第 2 次重跑的雲端未確認。WebKit 需要的套件（185 個、139 MB，含 ffmpeg 系列的影音函式庫）約為 Firefox 的 2.6 倍、Chromium 的 6 倍，同一個慢鏡像下最先超時。統籌 agent 轉述「2026-11-11 同一步驟 8 秒（17.7 MB/s）」與上表 42993416924 的 18 s（7.7 MB/s）不同，可能指不同的執行；不影響結論。
+**由紀錄得到的推定（未證明）：** v0.7 補充：PR #6 第 1 次的 Firefox 同樣在 AWS（設計 agent 以日誌確認：`Cloud: AWS`、`Region: us-west-2`、“Fetched 54.4 MB in 13min 4s (69.4 kB/s)”），所以慢的鏡像影響所有留在 Ubuntu 的 job，不只 WebKit。以下為初次記錄時的推定：卡住的那一次是唯一一筆在 AWS 主機、使用 EC2 區域鏡像的紀錄；其餘 Azure 主機使用 Azure 鏡像，速度 2.5～14.5 MB/s。慢的來源推定為「多雲運算池排到 AWS 時的 Ubuntu 鏡像」，樣本只有一筆，第 2 次重跑的雲端未確認。WebKit 需要的套件（185 個、139 MB，含 ffmpeg 系列的影音函式庫）約為 Firefox 的 2.6 倍、Chromium 的 6 倍，同一個慢鏡像下最先超時。統籌 agent 轉述「2026-11-11 同一步驟 8 秒（17.7 MB/s）」與上表 42993416924 的 18 s（7.7 MB/s）不同，可能指不同的執行；不影響結論。
 
-**未查證、須在 DQ-15 決定後的 PR 實測：** job 因 `timeout-minutes` 中止時的結論值與「重跑失敗的 job」是否涵蓋它；`v1.63.0-noble` 在 MCR 的存在與拉取時間（採 (d) 時）；執行器 uid（採 (d) 時）；apt 在同一 job 內重試時是否沿用已下載的套件（採 (b) 時）。
+**(6) macOS 執行器（選項 (g)；v0.7 新增）**
+
+| 問題 | 結論 | 官方原文（節錄） | 來源 | 查證 |
+|---|---|---|---|---|
+| 公開版本庫的標準執行器（含 macOS）是否免費 | 是 | “The use of standard GitHub-hosted runners is free: * In public repositories …” | https://docs.github.com/en/billing/concepts/product-billing/github-actions ；原始檔 https://raw.githubusercontent.com/github/docs/main/content/billing/concepts/product-billing/github-actions.md | 已查證（統籌 agent 查證，設計 agent 重讀原始檔確認） |
+| 公開版本庫的 macOS 標準執行器標籤與規格 | arm64（M1）3 核、7 GB 記憶體、14 GB SSD；標籤 `macos-latest`（目前對應 macOS 26 arm64）、`macos-15`、`macos-26`；另有 Intel 的 `macos-15-intel`、`macos-26-intel`。統籌 agent 轉述含 `macos-14`；設計 agent 讀到的現行表格**沒有** `macos-14`，runner-images README 記載 macOS 14 映像已於 2026-11-02 退役。本設計使用 `macos-15`，不受影響 | 表格列：“3 (M1) \| 7 GB \| 14 GB \| arm64 \| macos-latest, macos-15, macos-26 …”；README：“All macOS 14 images retired from GitHub Actions on November 2, 2026.” | https://docs.github.com/en/actions/reference/runners/github-hosted-runners ；原始檔 https://raw.githubusercontent.com/github/docs/main/data/reusables/actions/supported-github-runners.md ；https://github.com/actions/runner-images | 已查證 |
+| macOS 執行器在哪裡執行 | 在 GitHub 自己的 macOS 雲端，不在 Linux 的 AWS／Azure 多雲排程內；PR #6 的日誌為 `Cloud: MacCloud` | “macOS runners are hosted in GitHub's own macOS cloud.” | 原始檔 https://raw.githubusercontent.com/github/docs/main/content/actions/reference/runners/github-hosted-runners.md ；PR #6 run 44258209548 的日誌 | 已查證；實測 |
+| macOS 並行上限與排隊 | Free 方案標準執行器同時最多 20 個 job，其中 macOS 最多 5 個；需求高峰時 macOS job 可能較久才開始 | 表格列：“Standard GitHub-hosted runner \| Free \| 20 \| 5”；“During periods of high demand, jobs that run on macOS runners may take longer to start.” | https://docs.github.com/en/actions/reference/limits ；原始檔 https://raw.githubusercontent.com/github/docs/main/content/actions/reference/limits.md 、https://raw.githubusercontent.com/github/docs/main/data/reusables/actions/macos-runner-capacity.md | 已查證 |
+| Playwright 1.63.0 支援的 macOS 版本 | macOS 14（Sonoma）以上；`macos-15` 符合 | “macOS 14 (Sonoma) or later.” | https://raw.githubusercontent.com/microsoft/playwright/v1.63.0/docs/src/intro-js.md | 已查證 |
+| macOS 上是否需要系統相依套件 | 不需要額外設定 | “For Windows or macOS agents, no additional configuration is required, just install Playwright and run your tests.” | https://raw.githubusercontent.com/microsoft/playwright/v1.63.0/docs/src/ci.md | 已查證 |
+| WebKit 在 macOS 與 Linux 的差異 | 平台相關功能（例如媒體解碼）因作業系統而異；最接近 Safari 的是在 Mac 上執行 WebKit | “for the closest-to-Safari experience you should run WebKit on mac” | https://raw.githubusercontent.com/microsoft/playwright/v1.63.0/docs/src/browsers.md | 已查證 |
+| `--with-deps` 在 macOS 上的行為 | 未讀到原文；設計在 macOS 上不加 `--with-deps`（PR #6 的做法） | — | — | **未查證** |
+| macOS 排隊時間的長期分布 | PR #6 只有 5 次樣本（2～3 秒） | — | — | **未查證** |
+| macOS 上 NFR-3 版面與 NFR-6 計時 | 相關驗收到 PR-4 才轉實測；PR #6 只執行了 3 個已實測的測試（其餘為骨架） | — | — | **未查證** |
+| `timeout-minutes` 是否包含排隊時間 | 未讀到原文 | — | — | **未查證** |
+
+**(7) 直接執行判斷與符號連結（D-macOS；v0.7 新增，設計 agent 實測）**
+
+| 項目 | 方式 | 結果 | 查證 |
+|---|---|---|---|
+| 經符號連結執行時的 `process.argv[1]` 與 `import.meta.url` | Node.js 22.23.4，在暫存目錄建立 `real/` 與指向它的符號連結 `link/`，執行 `node link/m.mjs` | `process.argv[1]` 為 `…/link/m.mjs`，`import.meta.url` 為 `…/real/m.mjs`；`path.resolve(argv[1]) === fileURLToPath(url)` 為 **false**；`realpathSync` 兩邊比對為 true；`import.meta.main` 為 true | 實測 |
+| 以實際路徑、在符號連結目錄中以相對路徑、`--preserve-symlinks-main` 執行 | 同上 | 舊判斷與 realpath 比對皆為 true（`--preserve-symlinks-main` 下 `import.meta.url` 也是連結路徑） | 實測 |
+| 被另一個模組匯入時 | `import './m.mjs'` | realpath 比對為 false（不執行主程式），`import.meta.main` 為 false | 實測 |
+| `import.meta.main` 的可用版本 | Node.js 文件 | “added: v22.18.0”、“Stability: 1.0 - Early development” | 已查證：https://raw.githubusercontent.com/nodejs/node/v22.23.4/doc/api/esm.md |
+| `node --test` 的 glob 沒有對應任何檔案 | Node.js 22.23.4，`node --test 'nothing/**/*.test.mjs'` | 以 **0** 結束 | 實測 |
+| macOS 的 `os.tmpdir()` 經符號連結 | 統籌 agent 於 PR #6 的診斷步驟確認（`/var` → `/private/var`） | 經連結路徑執行 `build.mjs` 時沒有產生 `dist/` | 實測（統籌 agent） |
+
+**未查證、須在 DQ-15 決定後的 PR 實測：** job 因 `timeout-minutes` 中止時的結論值與「重跑失敗的 job」是否涵蓋它；`v1.63.0-noble` 在 MCR 的存在與拉取時間（採 (d) 時）；執行器 uid（採 (d) 時）；apt 在同一 job 內重試時是否沿用已下載的套件（採 (b) 時）；`timeout-minutes` 是否包含排隊時間；採 (g) 時 `--with-deps` 在 macOS 上的行為（設計不使用）、macOS 排隊的長期分布、macOS 上 NFR-3、NFR-6（PR-4）。
 
 ## 3. 結論摘要
 
@@ -256,3 +286,4 @@ v0.7：DQ-15 的未查證項目見 2.8 末段。
 | 0.6 | 2026-11-10 | 新增 2.7：PR-1b 合併後的平台狀態（review-gate 執行紀錄、分支保護、`body_html`）與 GFM 渲染、Unicode 性質的實測；GFM 規格原文與 `POST /markdown` 未能讀取，標為未查證並以 cmark-gfm 實測 | spec.md v0.6 DQ-14、12.6「v0.6 的順序」 |
 | 0.6.1 | 2026-11-10 | 2.7 新增 node:test 子測試與並行的實測 | spec.md 12.2 第 9e 點 |
 | 0.7 | 2026-11-18 | 新增 2.8：GitHub Actions 的逾時、必要檢查狀態、重跑、多雲執行器、`-latest` 移轉、快取限制、容器 job 語法與 Playwright 官方映像（讀官方原始檔；docs.github.com、playwright.dev、MCR 無法連線）；本版本庫 e2e 執行紀錄的雲端、鏡像與下載時間；未查證項目 | spec.md v0.7 DQ-15（探測 PR B 的 `e2e (webkit)` 卡在 `--with-deps`） |
+| 0.7（選項 (g) 與 D-macOS） | 2026-11-18 | 2.8 (5) 補 PR #6 的紀錄（Firefox 在 AWS 上 13 分 4 秒、WebKit 在 MacCloud）；新增 (6) macOS 執行器（免費、標籤與規格、MacCloud、並行上限、Playwright 支援與 macOS 不需系統相依；`macos-14` 已不在表中）與 (7) 直接執行判斷與符號連結、`node --test` 無對應檔案時以 0 結束的實測；未查證項目補充 | 產品負責人 2026-11-18 15:20 指示實測 (g)；統籌 agent 的查證與 D-macOS 回報 |
