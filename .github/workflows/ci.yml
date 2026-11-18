@@ -1,6 +1,8 @@
 # CI（spec.md 12.1、12.2.1、12.3；EQ-3、EQ-4、NFR-1）
 # 必要檢查名稱：unit、acceptance-ids、e2e (chromium)、e2e (firefox)、e2e (webkit)
 # 安全：不在 run: 中以 ${{ }} 插值任何使用者可控的事件內容；只以 env: 傳入 SHA 與矩陣值。
+# 逾時與執行環境（spec.md 12.7.4，DQ-15）：unit、acceptance-ids 10 分鐘、ubuntu-26.04；
+# e2e 30 分鐘、macos-15，install step 10 分鐘。逾時時重跑失敗的 job，不移除必要檢查、不讓失敗的 step 被視為成功。
 name: ci
 
 on:
@@ -19,7 +21,8 @@ concurrency:
 jobs:
   unit:
     name: unit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -42,7 +45,8 @@ jobs:
 
   acceptance-ids:
     name: acceptance-ids
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,7 +58,8 @@ jobs:
 
   e2e:
     name: e2e (${{ matrix.browser }})
-    runs-on: ubuntu-latest
+    runs-on: macos-15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -73,7 +78,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps "$BROWSER"
+      # Playwright 瀏覽器快取（spec.md 12.7.4）：路徑在工作目錄之外；鍵含 package-lock.json 的雜湊，
+      # 不設前綴還原鍵（只採用完全相同的鍵）。命中時 install 仍執行，任何步驟都不以快取是否命中為條件
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}
+      # macOS 不需系統相依套件，只安裝瀏覽器本身
+      - timeout-minutes: 10
+        run: npx playwright install "$BROWSER"
       - name: build
         run: node scripts/build.mjs
       # 兩次執行各自以自訂 reporter 輸出結果檔（playwright.config.mjs；spec.md 12.2.1）
